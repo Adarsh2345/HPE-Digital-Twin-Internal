@@ -1,0 +1,2 @@
+- [ANOMALY] Server srv-hpe-gen11-01 exceeded 90.0C (Current: 95.0C). VMs flagged as risk_zone.
+- [ANOMALY] Server HPE-PROLIANT-001 exceeded 90.0C (Current: 95.0C). VMs flagged as risk_zone.

@@ -1,0 +1,44 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "System Telemetry",
+  "type": "object",
+  "properties": {
+    "system_id": {
+      "type": "string"
+    },
+    "parent_asset_id": {
+      "type": "string"
+    },
+    "system_type": {
+      "type": "string",
+      "enum": [
+        "hypervisor",
+        "vm",
+        "container"
+      ]
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "running",
+        "stopped",
+        "error",
+        "degraded"
+      ]
+    },
+    "memory_utilization": {
+      "type": "number"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "required": [
+    "system_id",
+    "parent_asset_id",
+    "system_type",
+    "status",
+    "timestamp"
+  ]
+}

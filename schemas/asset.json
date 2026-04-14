@@ -1,0 +1,45 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Asset Telemetry",
+  "type": "object",
+  "properties": {
+    "asset_id": {
+      "type": "string"
+    },
+    "asset_type": {
+      "type": "string",
+      "enum": [
+        "server",
+        "switch",
+        "storage",
+        "vm",
+        "hypervisor"
+      ]
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "ok",
+        "warning",
+        "critical",
+        "offline"
+      ]
+    },
+    "temperature": {
+      "type": "number"
+    },
+    "cpu_utilization": {
+      "type": "number"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "required": [
+    "asset_id",
+    "asset_type",
+    "status",
+    "timestamp"
+  ]
+}
