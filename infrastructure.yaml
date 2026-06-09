@@ -80,6 +80,20 @@ containers:
       ip: "10.10.1.1"
       description: "Models ToR Switch 1 (Top of Rack Router)"
 
+    - name: "node-exporter"
+      image: "prom/node-exporter:latest"
+      role: "metrics-exporter"
+      port: 9100
+      network_mode: "host"
+      description: "Exports host-level CPU, RAM, disk metrics to Prometheus"
+
+    - name: "cadvisor"
+      image: "gcr.io/cadvisor/cadvisor:latest"
+      role: "container-metrics"
+      port: 8080
+      network_mode: "host"
+      description: "Exports Docker container metrics to Prometheus"
+
   droplet-2-tor2:
     - name: "server-3"
       image: "ubuntu:24.04"
@@ -98,6 +112,20 @@ containers:
       role: "tor-router"
       ip: "10.10.2.1"
       description: "Models ToR Switch 2 (Top of Rack Router)"
+
+    - name: "node-exporter"
+      image: "prom/node-exporter:latest"
+      role: "metrics-exporter"
+      port: 9100
+      network_mode: "host"
+      description: "Exports host-level CPU, RAM, disk metrics to Prometheus"
+
+    - name: "cadvisor"
+      image: "gcr.io/cadvisor/cadvisor:latest"
+      role: "container-metrics"
+      port: 8080
+      network_mode: "host"
+      description: "Exports Docker container metrics to Prometheus"
 
   droplet-3-mgmt:
     - name: "netbox"
@@ -126,6 +154,34 @@ containers:
       role: "spine-switch"
       ip: "10.10.3.1"
       description: "Models Spine Switch connecting all subnets"
+
+    - name: "prometheus"
+      image: "prom/prometheus:latest"
+      role: "metrics-collector"
+      ip: "10.10.3.17"
+      port: 9090
+      description: "Prometheus - scrapes metrics from all droplets"
+
+    - name: "grafana"
+      image: "grafana/grafana:latest"
+      role: "metrics-dashboard"
+      ip: "10.10.3.18"
+      port: 3000
+      description: "Grafana - visualises Prometheus metrics (admin/admin)"
+
+    - name: "node-exporter"
+      image: "prom/node-exporter:latest"
+      role: "metrics-exporter"
+      port: 9100
+      network_mode: "host"
+      description: "Exports host-level CPU, RAM, disk metrics to Prometheus"
+
+    - name: "cadvisor"
+      image: "gcr.io/cadvisor/cadvisor:latest"
+      role: "container-metrics"
+      port: 8080
+      network_mode: "host"
+      description: "Exports Docker container metrics to Prometheus"
 
 # ── Network Links (Topology)
 links:

@@ -13,6 +13,34 @@ packages:
   - lsb-release
 
 write_files:
+  - path: /opt/prometheus/prometheus.yml
+    permissions: "0644"
+    content: |
+      global:
+        scrape_interval: 15s
+        evaluation_interval: 15s
+
+      scrape_configs:
+        - job_name: "prometheus"
+          static_configs:
+            - targets: ["localhost:9090"]
+
+        - job_name: "node-exporter"
+          static_configs:
+            - targets:
+                - "DROPLET_1_PRIVATE_IP:9100"
+                - "DROPLET_2_PRIVATE_IP:9100"
+                - "DROPLET_3_PRIVATE_IP:9100"
+          labels:
+            droplet: "tor1"
+
+        - job_name: "cadvisor"
+          static_configs:
+            - targets:
+                - "DROPLET_1_PRIVATE_IP:8080"
+                - "DROPLET_2_PRIVATE_IP:8080"
+                - "DROPLET_3_PRIVATE_IP:8080"
+
   - path: /opt/docker-compose/docker-compose.yml
     permissions: "0644"
     content: |
@@ -88,8 +116,69 @@ write_files:
             - /opt/python-app:/app
           working_dir: /app
 
+        prometheus:
+          image: prom/prometheus:latest
+          container_name: prometheus
+          networks:
+            mgmt-net:
+              ipv4_address: "10.10.3.17"
+          ports:
+            - "9090:9090"
+          restart: unless-stopped
+          volumes:
+            - /opt/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+            - prometheus-data:/prometheus
+          command:
+            - "--config.file=/etc/prometheus/prometheus.yml"
+            - "--storage.tsdb.path=/prometheus"
+
+        grafana:
+          image: grafana/grafana:latest
+          container_name: grafana
+          networks:
+            mgmt-net:
+              ipv4_address: "10.10.3.18"
+          ports:
+            - "3000:3000"
+          restart: unless-stopped
+          environment:
+            - GF_SECURITY_ADMIN_USER=admin
+            - GF_SECURITY_ADMIN_PASSWORD=admin
+          volumes:
+            - grafana-data:/var/lib/grafana
+
+        node-exporter:
+          image: prom/node-exporter:latest
+          container_name: node-exporter
+          pid: host
+          network_mode: host
+          restart: unless-stopped
+          volumes:
+            - /proc:/host/proc:ro
+            - /sys:/host/sys:ro
+            - /:/rootfs:ro
+          command:
+            - "--path.procfs=/host/proc"
+            - "--path.sysfs=/host/sys"
+            - "--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)"
+
+        cadvisor:
+          image: gcr.io/cadvisor/cadvisor:latest
+          container_name: cadvisor
+          privileged: true
+          network_mode: host
+          restart: unless-stopped
+          volumes:
+            - /:/rootfs:ro
+            - /var/run:/var/run:ro
+            - /sys:/sys:ro
+            - /var/lib/docker/:/var/lib/docker:ro
+            - /dev/disk/:/dev/disk:ro
+
       volumes:
         neo4j-data:
+        prometheus-data:
+        grafana-data:
 
 runcmd:
   # Install Docker via official script
