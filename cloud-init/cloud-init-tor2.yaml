@@ -1,0 +1,74 @@
+#cloud-config
+# cloud-init for droplet-2-tor2
+# Installs Docker, deploys docker-compose.yml, and starts containers
+
+package_update: true
+package_upgrade: false
+
+packages:
+  - apt-transport-https
+  - ca-certificates
+  - curl
+  - gnupg
+  - lsb-release
+
+write_files:
+  - path: /opt/docker-compose/docker-compose.yml
+    permissions: "0644"
+    content: |
+      version: "3.9"
+
+      networks:
+        tor2-net:
+          driver: bridge
+          ipam:
+            config:
+              - subnet: "10.10.2.0/24"
+
+      services:
+        router-2:
+          image: frrouting/frr
+          container_name: router-2
+          cap_add:
+            - NET_ADMIN
+            - SYS_ADMIN
+          networks:
+            tor2-net:
+              ipv4_address: "10.10.2.1"
+          restart: unless-stopped
+          volumes:
+            - /etc/frr:/etc/frr
+
+        server-3:
+          image: ubuntu:24.04
+          container_name: server-3
+          command: sleep infinity
+          networks:
+            tor2-net:
+              ipv4_address: "10.10.2.11"
+          restart: unless-stopped
+          cap_add:
+            - NET_ADMIN
+
+        server-4:
+          image: ubuntu:24.04
+          container_name: server-4
+          command: sleep infinity
+          networks:
+            tor2-net:
+              ipv4_address: "10.10.2.12"
+          restart: unless-stopped
+          cap_add:
+            - NET_ADMIN
+
+runcmd:
+  # Install Docker via official script
+  - curl -fsSL https://get.docker.com | bash
+  - systemctl enable docker
+  - systemctl start docker
+  # Install Docker Compose v2 plugin
+  - mkdir -p /usr/local/lib/docker/cli-plugins
+  - curl -SL "https://github.com/docker/compose/releases/latest/download/docker-compose-linux-x86_64" -o /usr/local/lib/docker/cli-plugins/docker-compose
+  - chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
+  # Start containers
+  - cd /opt/docker-compose && docker compose up -d

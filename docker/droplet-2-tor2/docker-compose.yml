@@ -1,0 +1,44 @@
+version: "3.9"
+
+networks:
+  tor2-net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: "10.10.2.0/24"
+
+services:
+  router-2:
+    image: frrouting/frr
+    container_name: router-2
+    cap_add:
+      - NET_ADMIN
+      - SYS_ADMIN
+    networks:
+      tor2-net:
+        ipv4_address: "10.10.2.1"
+    restart: unless-stopped
+    volumes:
+      - /etc/frr:/etc/frr
+
+  server-3:
+    image: ubuntu:24.04
+    container_name: server-3
+    command: sleep infinity
+    networks:
+      tor2-net:
+        ipv4_address: "10.10.2.11"
+    restart: unless-stopped
+    cap_add:
+      - NET_ADMIN
+
+  server-4:
+    image: ubuntu:24.04
+    container_name: server-4
+    command: sleep infinity
+    networks:
+      tor2-net:
+        ipv4_address: "10.10.2.12"
+    restart: unless-stopped
+    cap_add:
+      - NET_ADMIN
