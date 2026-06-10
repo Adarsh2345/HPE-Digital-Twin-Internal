@@ -1,0 +1,68 @@
+# ==========================================
+# 1. PYTHON RUNTIME & CACHE BUILDERS
+# ==========================================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# ==========================================
+# 2. VIRTUAL ENVIRONMENT ISOLATION (VENV)
+# ==========================================
+.venv/
+venv/
+ENV/
+env/
+导env/
+built/
+
+# ==========================================
+# 3. AUTOMATED TESTING METRICS (PYTEST)
+# ==========================================
+.pytest_cache/
+.htmlcov/
+.tox/
+.noscript/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+nosetests.xml
+pip-log.txt
+pip-delete-this-directory.txt
+
+# ==========================================
+# 4. SYSTEM ENVIRONMENT CONFIGS (.env)
+# ==========================================
+.env
+.yaml_env
+*.env.local
+*.env.*.local
+
+# ==========================================
+# 5. OS & IDE SPECIFIC JUNK (VS Code / Ubuntu)
+# ==========================================
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db

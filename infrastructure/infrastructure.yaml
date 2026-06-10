@@ -1,0 +1,154 @@
+# ============================================================
+# Source of Truth — HPE Digital Twin
+# Based on Revised Architecture with Router + Both Subnets
+# ============================================================
+
+site:
+  name: "hpe-digital-twin"
+  region: "blr1"
+
+# ── VPC and Subnet Definitions
+network:
+  vpc:
+    name: "hpe-twin-vpc"
+    region: "blr1"
+
+  subnets:
+    - name: "subnet-1-tor1"
+      cidr: "10.10.1.0/24"
+      description: "Models ToR Switch 1"
+
+    - name: "subnet-2-tor2"
+      cidr: "10.10.2.0/24"
+      description: "Models ToR Switch 2"
+
+    - name: "subnet-3-mgmt"
+      cidr: "10.10.3.0/24"
+      description: "Management and Spine plane"
+
+# ── Droplet Definitions
+droplets:
+  - name: "droplet-1-tor1"
+    size: "s-2vcpu-4gb"
+    image: "ubuntu-24-04-x64"
+    region: "blr1"
+    subnet: "subnet-1-tor1"
+    description: "Hosts ToR Switch 1 compute nodes"
+    tags:
+      - "tor1"
+      - "compute"
+
+  - name: "droplet-2-tor2"
+    size: "s-2vcpu-4gb"
+    image: "ubuntu-24-04-x64"
+    region: "blr1"
+    subnet: "subnet-2-tor2"
+    description: "Hosts ToR Switch 2 compute nodes"
+    tags:
+      - "tor2"
+      - "compute"
+
+  - name: "droplet-3-mgmt"
+    size: "s-1vcpu-2gb"
+    image: "ubuntu-24-04-x64"
+    region: "blr1"
+    subnet: "subnet-3-mgmt"
+    description: "Management plane - NetBox, Neo4j, Python App, Spine"
+    tags:
+      - "management"
+      - "spine"
+
+# ── Container Definitions per Droplet
+containers:
+
+  droplet-1-tor1:
+    - name: "server-1"
+      image: "ubuntu:24.04"
+      role: "compute-node"
+      ip: "10.10.1.11"
+      description: "Compute node under ToR Switch 1"
+
+    - name: "server-2"
+      image: "ubuntu:24.04"
+      role: "compute-node"
+      ip: "10.10.1.12"
+      description: "Compute node under ToR Switch 1"
+
+    - name: "router-1"
+      image: "frrouting/frr"
+      role: "tor-router"
+      ip: "10.10.1.1"
+      description: "Models ToR Switch 1 (Top of Rack Router)"
+
+  droplet-2-tor2:
+    - name: "server-3"
+      image: "ubuntu:24.04"
+      role: "compute-node"
+      ip: "10.10.2.11"
+      description: "Compute node under ToR Switch 2"
+
+    - name: "server-4"
+      image: "ubuntu:24.04"
+      role: "compute-node"
+      ip: "10.10.2.12"
+      description: "Compute node under ToR Switch 2"
+
+    - name: "router-2"
+      image: "frrouting/frr"
+      role: "tor-router"
+      ip: "10.10.2.1"
+      description: "Models ToR Switch 2 (Top of Rack Router)"
+
+  droplet-3-mgmt:
+    - name: "netbox"
+      image: "netboxcommunity/netbox:latest"
+      role: "infrastructure-docs"
+      ip: "10.10.3.11"
+      port: 8080
+      description: "NetBox - infrastructure source of truth UI"
+
+    - name: "neo4j"
+      image: "neo4j:latest"
+      role: "graph-database"
+      ip: "10.10.3.12"
+      port: 7474
+      description: "Neo4j - topology graph database"
+
+    - name: "python-app"
+      image: "python:3.11"
+      role: "middleware"
+      ip: "10.10.3.13"
+      port: 5000
+      description: "Middleware - syncs NetBox and DigitalOcean"
+
+    - name: "spine-router"
+      image: "frrouting/frr"
+      role: "spine-switch"
+      ip: "10.10.3.1"
+      description: "Models Spine Switch connecting all subnets"
+
+# ── Network Links (Topology)
+links:
+  - source: "spine-router"
+    target: "router-1"
+    description: "Spine to ToR Switch 1"
+
+  - source: "spine-router"
+    target: "router-2"
+    description: "Spine to ToR Switch 2"
+
+  - source: "router-1"
+    target: "server-1"
+    description: "ToR Switch 1 to Compute Node 1"
+
+  - source: "router-1"
+    target: "server-2"
+    description: "ToR Switch 1 to Compute Node 2"
+
+  - source: "router-2"
+    target: "server-3"
+    description: "ToR Switch 2 to Compute Node 3"
+
+  - source: "router-2"
+    target: "server-4"
+    description: "ToR Switch 2 to Compute Node 4"
