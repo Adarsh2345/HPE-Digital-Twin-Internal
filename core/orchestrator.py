@@ -1,8 +1,8 @@
 """
 core/orchestrator.py
 Central system orchestrator.
-- Phase 1: Bootstrap — parse YAML → build topology graph
-- Phase 2: 12s async loop — scrape metrics → derive state → cache
+- Phase 1: Bootstrap — parse YAML → build topology graph → sync initial structure to Neo4j
+- Phase 2: 12s async loop — scrape metrics → derive state → cache to Redis & timeline to Neo4j
 - Exposes the live derived_state_graph for API and simulation layers
 """
 import asyncio
@@ -16,6 +16,7 @@ from config.settings import (
     INFRASTRUCTURE_YAML,
     TELEMETRY_INTERVAL_SECONDS,
     REDIS_HOST, REDIS_PORT, REDIS_DB,
+    NEO4J_URI, NEO4J_USER, NEO4J_PASSWORD,
 )
 from config.constants import REDIS_KEYS
 
@@ -34,6 +35,7 @@ class Orchestrator:
         self.scraper = None
         self.processor = None
         self.state_builder = None
+        self.neo4j_client = None
 
         self._redis = None
         self._loop_task: Optional[asyncio.Task] = None
@@ -79,8 +81,9 @@ class Orchestrator:
             f"{self.initial_graph.number_of_edges()} edges"
         )
 
-        # Try to connect Redis
+        # Connect and synchronize database backends
         self._connect_redis()
+        self._connect_and_sync_neo4j()
 
     def _connect_redis(self):
         try:
@@ -94,6 +97,22 @@ class Orchestrator:
         except Exception as e:
             logger.warning(f"Redis unavailable ({e}) — state will be in-memory only")
             self._redis = None
+
+    def _connect_and_sync_neo4j(self):
+        try:
+            from integrations.neo4j.neo4j_client import Neo4jClient
+            from core.graph.graph_serializer import graph_to_dict
+
+            # Instantiate client connection
+            self.neo4j_client = Neo4jClient(uri=NEO4J_URI, user=NEO4J_USER, password=NEO4J_PASSWORD)
+            logger.info(f"Neo4j Client connected at {NEO4J_URI}")
+
+            # Instantly sync the initial physical topology configuration wireframe
+            base_dict = graph_to_dict(self.initial_graph)
+            self.neo4j_client.save_base_topology(base_dict)
+        except Exception as e:
+            logger.warning(f"Neo4j unavailable ({e}) — database timeline tracking will be skipped")
+            self.neo4j_client = None
 
     # ------------------------------------------------------------------
     # Phase 2: 12-second telemetry loop
@@ -135,13 +154,16 @@ class Orchestrator:
             self.initial_graph, processed
         )
 
-        # Push to Redis
+        # 1. Push real-time snapshot payload to cache layer
         self._cache_to_redis(processed)
+
+        # 2. Push timeline metrics entry automatically to graph layers
+        self._sync_to_neo4j()
 
         chaos_tag = " [🔥 CHAOS]" if self.chaos_engine.is_active else ""
         logger.info(
             f"Tick #{self._tick_count}{chaos_tag} — "
-            f"derived state updated at {time.strftime('%H:%M:%S')}"
+            f"derived state synchronized to Redis & Neo4j at {time.strftime('%H:%M:%S')}"
         )
 
     def _cache_to_redis(self, snapshot: dict):
@@ -153,6 +175,18 @@ class Orchestrator:
             self._redis.set(REDIS_KEYS["CHAOS_MODE"], str(self.chaos_engine.is_active))
         except Exception as e:
             logger.warning(f"Redis write failed: {e}")
+
+    def _sync_to_neo4j(self):
+        if self.neo4j_client is None:
+            return
+        try:
+            from core.graph.graph_serializer import graph_to_dict
+            derived_dict = graph_to_dict(self.derived_graph)
+            
+            # Send live metrics down to build snapshot links over time
+            self.neo4j_client.save_live_metrics(derived_dict, tick=self._tick_count)
+        except Exception as e:
+            logger.warning(f"Neo4j auto-snapshot sync failed: {e}")
 
     # ------------------------------------------------------------------
     # Public accessors
@@ -173,6 +207,7 @@ class Orchestrator:
             "nodes": self.initial_graph.number_of_nodes() if self.initial_graph else 0,
             "edges": self.initial_graph.number_of_edges() if self.initial_graph else 0,
             "redis_connected": self._redis is not None,
+            "neo4j_connected": self.neo4j_client is not None,
         }
 
 

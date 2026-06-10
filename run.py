@@ -2,10 +2,15 @@
 """
 run.py
 Top-level entry point for the HPE Digital Twin Platform.
+Automatically ensures Docker core services (Redis, Neo4j) are running and fully active on startup.
 """
 import sys
 import asyncio
 import logging
+import subprocess
+import os
+import socket
+import time
 
 logging.basicConfig(
     level=logging.INFO,
@@ -14,7 +19,27 @@ logging.basicConfig(
 )
 logger = logging.getLogger("run")
 
+def ensure_docker_services():
+    """Starts Redis and Neo4j via docker-compose and blocks until healthchecks pass."""
+    compose_path = os.path.join("docker", "docker-compose.yml")
+    if not os.path.exists(compose_path):
+        logger.warning(f"Docker Compose file not found at {compose_path}. Skipping auto-start.")
+        return
 
+    logger.info("🐳 Orchestrating Docker infrastructure layers (Redis + Neo4j)...")
+    logger.info("⏳ Launching containers and waiting for engines to fully initialize...")
+    try:
+        # The '--wait' flag forces docker-compose to block until the healthcheck passes!
+        subprocess.run(
+            ["docker", "compose", "-f", compose_path, "up", "-d", "--wait"],
+            check=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE
+        )
+        logger.info("✅ Redis and Neo4j stack verified operational, healthy, and ready!")
+    except Exception as e:
+        logger.error(f"❌ Failed to spin up Docker services automatically: {e}")
+        logger.warning("Ensure Docker Desktop/Daemon is running. Proceeding with application boot...")
 def run_server():
     import uvicorn
     from config.settings import API_HOST, API_PORT, DEBUG
@@ -27,13 +52,11 @@ def run_server():
         log_level="info",
     )
 
-
 def run_bootstrap_only():
     from core.orchestrator import orchestrator
     orchestrator.bootstrap()
     topo = orchestrator.get_topology_dict()
     logger.info(f"Bootstrap complete — {len(topo.get('nodes', []))} nodes loaded")
-
 
 async def run_demo():
     from core.orchestrator import orchestrator
@@ -65,8 +88,10 @@ async def run_demo():
             print(f"     ⚠ {w}")
     print("═" * 60)
 
-
 if __name__ == "__main__":
+    # Intercept and run infrastructure setup first with readiness checks
+    ensure_docker_services()
+
     mode = sys.argv[1] if len(sys.argv) > 1 else ""
     if mode == "--bootstrap":
         run_bootstrap_only()
