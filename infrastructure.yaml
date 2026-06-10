@@ -1,6 +1,6 @@
 # ============================================================
 # Source of Truth — HPE Digital Twin
-# Based on Revised Architecture with Router + Both Subnets
+# Updated: Distinct physical interfaces configured for server links
 # ============================================================
 
 site:
@@ -79,6 +79,36 @@ containers:
       role: "tor-router"
       ip: "10.10.1.1"
       description: "Models ToR Switch 1 (Top of Rack Router)"
+      interfaces:
+        - name: "eth0"
+          type: "1000base-t"
+          role: "uplink"
+          connects_to: "spine-router"
+          description: "Uplink to Spine Switch"
+        - name: "eth1"
+          type: "1000base-t"
+          role: "downlink"
+          connects_to: ["server-1"]
+          description: "Downlink to server-1"
+        - name: "eth2"
+          type: "1000base-t"
+          role: "downlink"
+          connects_to: ["server-2"]
+          description: "Downlink to server-2"
+
+    - name: "node-exporter"
+      image: "prom/node-exporter:latest"
+      role: "metrics-exporter"
+      port: 9100
+      network_mode: "host"
+      description: "Exports host-level CPU, RAM, disk metrics to Prometheus"
+
+    - name: "cadvisor"
+      image: "gcr.io/cadvisor/cadvisor:latest"
+      role: "container-metrics"
+      port: 8080
+      network_mode: "host"
+      description: "Exports Docker container metrics to Prometheus"
 
   droplet-2-tor2:
     - name: "server-3"
@@ -98,6 +128,36 @@ containers:
       role: "tor-router"
       ip: "10.10.2.1"
       description: "Models ToR Switch 2 (Top of Rack Router)"
+      interfaces:
+        - name: "eth0"
+          type: "1000base-t"
+          role: "uplink"
+          connects_to: "spine-router"
+          description: "Uplink to Spine Switch"
+        - name: "eth1"
+          type: "1000base-t"
+          role: "downlink"
+          connects_to: ["server-3"]
+          description: "Downlink to server-3"
+        - name: "eth2"
+          type: "1000base-t"
+          role: "downlink"
+          connects_to: ["server-4"]
+          description: "Downlink to server-4"
+
+    - name: "node-exporter"
+      image: "prom/node-exporter:latest"
+      role: "metrics-exporter"
+      port: 9100
+      network_mode: "host"
+      description: "Exports host-level CPU, RAM, disk metrics to Prometheus"
+
+    - name: "cadvisor"
+      image: "gcr.io/cadvisor/cadvisor:latest"
+      role: "container-metrics"
+      port: 8080
+      network_mode: "host"
+      description: "Exports Docker container metrics to Prometheus"
 
   droplet-3-mgmt:
     - name: "netbox"
@@ -126,29 +186,80 @@ containers:
       role: "spine-switch"
       ip: "10.10.3.1"
       description: "Models Spine Switch connecting all subnets"
+      interfaces:
+        - name: "eth0"
+          type: "1000base-t"
+          role: "downlink"
+          connects_to: "router-1"
+          description: "Downlink to ToR Switch 1"
+        - name: "eth1"
+          type: "1000base-t"
+          role: "downlink"
+          connects_to: "router-2"
+          description: "Downlink to ToR Switch 2"
+
+    - name: "prometheus"
+      image: "prom/prometheus:latest"
+      role: "metrics-collector"
+      ip: "10.10.3.17"
+      port: 9090
+      description: "Prometheus - scrapes metrics from all droplets"
+
+    - name: "grafana"
+      image: "grafana/grafana:latest"
+      role: "metrics-dashboard"
+      ip: "10.10.3.18"
+      port: 3000
+      description: "Grafana - visualises Prometheus metrics (admin/admin)"
+
+    - name: "node-exporter"
+      image: "prom/node-exporter:latest"
+      role: "metrics-exporter"
+      port: 9100
+      network_mode: "host"
+      description: "Exports host-level CPU, RAM, disk metrics to Prometheus"
+
+    - name: "cadvisor"
+      image: "gcr.io/cadvisor/cadvisor:latest"
+      role: "container-metrics"
+      port: 8080
+      network_mode: "host"
+      description: "Exports Docker container metrics to Prometheus"
 
 # ── Network Links (Topology)
 links:
   - source: "spine-router"
+    source_iface: "eth0"
     target: "router-1"
-    description: "Spine to ToR Switch 1"
+    target_iface: "eth0"
+    description: "Spine eth0 to ToR Switch 1 eth0 (uplink)"
 
   - source: "spine-router"
+    source_iface: "eth1"
     target: "router-2"
-    description: "Spine to ToR Switch 2"
+    target_iface: "eth0"
+    description: "Spine eth1 to ToR Switch 2 eth0 (uplink)"
 
   - source: "router-1"
+    source_iface: "eth1"
     target: "server-1"
-    description: "ToR Switch 1 to Compute Node 1"
+    target_iface: "eth0"
+    description: "ToR Switch 1 eth1 downlink to server-1"
 
   - source: "router-1"
+    source_iface: "eth2"
     target: "server-2"
-    description: "ToR Switch 1 to Compute Node 2"
+    target_iface: "eth0"
+    description: "ToR Switch 1 eth2 downlink to server-2"
 
   - source: "router-2"
+    source_iface: "eth1"
     target: "server-3"
-    description: "ToR Switch 2 to Compute Node 3"
+    target_iface: "eth0"
+    description: "ToR Switch 2 eth1 downlink to server-3"
 
   - source: "router-2"
+    source_iface: "eth2"
     target: "server-4"
-    description: "ToR Switch 2 to Compute Node 4"
+    target_iface: "eth0"
+    description: "ToR Switch 2 eth2 downlink to server-4"
