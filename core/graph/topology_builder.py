@@ -5,6 +5,8 @@ Builds the Initial Topology Graph in NetworkX from loader data.
 import networkx as nx
 from typing import Optional
 import logging
+from datetime import datetime, timezone
+import uuid
 
 logger = logging.getLogger(__name__)
 
@@ -21,11 +23,21 @@ class TopologyBuilder:
 
         # Add edges
         for edge in topology["edges"]:
-            G.add_edge(
-                edge["source"],
-                edge["target"],
-                **{k: v for k, v in edge.items() if k not in ("source", "target")},
-            )
+            attrs = {k: v for k, v in edge.items() if k not in ("source", "target")}
+            if G.has_edge(edge["source"], edge["target"]):
+                existing = G.edges[edge["source"], edge["target"]]
+                existing.setdefault("physical_links", []).append(attrs)
+                existing["link_count"] = len(existing["physical_links"])
+            else:
+                attrs["physical_links"] = [dict(attrs)]
+                attrs["link_count"] = 1
+                G.add_edge(edge["source"], edge["target"], **attrs)
+
+        G.graph.update(
+            version=str(uuid.uuid4()),
+            built_at=datetime.now(timezone.utc).isoformat(),
+            telemetry_provenance="Synthetic Demo",
+        )
 
         self.graph = G
         logger.info(

@@ -22,14 +22,14 @@ def test_node_count():
     p = YAMLParser(YAML_PATH)
     p.load()
     nodes = p.get_all_nodes()
-    assert len(nodes) == 10
+    assert len(nodes) == 26
 
 
 def test_links():
     p = YAMLParser(YAML_PATH)
     p.load()
     links = p.links
-    assert len(links) == 6
+    assert len(links) == 15
 
 
 def test_topology_loader():
@@ -37,8 +37,8 @@ def test_topology_loader():
     p.load()
     loader = TopologyLoader(p)
     topo = loader.load_topology()
-    assert len(topo["nodes"]) == 10
-    assert len(topo["edges"]) == 6
+    assert len(topo["nodes"]) == 26
+    assert len(topo["edges"]) == 15
     node_ids = [n["id"] for n in topo["nodes"]]
-    assert "spine-router" in node_ids
-    assert "server-1" in node_ids
+    assert "droplet-3-mgmt/spine-router" in node_ids
+    assert "droplet-1-tor1/server-1" in node_ids
