@@ -46,28 +46,7 @@ class Simulator:
         # Phase 3 Step 3: Run the predictive metric time-step calculations
         projections = self.predictor.project(cloned_graph, steps=projection_steps)
 
-        # Sync the final step metrics back onto the root of the graph object
-        if projections:
-            final_step = projections[-1]
-            
-            for nid, node_metrics in final_step.get("nodes", {}).items():
-                if nid in cloned_graph.nodes:
-                    # Update both the raw root parameters and the nested properties map
-                    cloned_graph.nodes[nid]["metrics"].update(node_metrics)
-                    cloned_graph.nodes[nid]["cpu"] = node_metrics.get("cpu", node_metrics.get("cpu_percent", 0.0))
-                    cloned_graph.nodes[nid]["memory"] = node_metrics.get("memory", node_metrics.get("memory_percent", 0.0))
-                    
-            for ekey, edge_metrics in final_step.get("edges", {}).items():
-                try:
-                    u, v = ekey.split("->")
-                    if cloned_graph.has_edge(u, v):
-                        cloned_graph.edges[u, v]["metrics"].update(edge_metrics)
-                        cloned_graph.edges[u, v]["latency"] = edge_metrics.get("latency", edge_metrics.get("latency_ms", 0.0))
-                        cloned_graph.edges[u, v]["packet_loss"] = edge_metrics.get("packet_loss", edge_metrics.get("packet_loss_percent", 0.0))
-                except ValueError:
-                    pass
-
-        # Serialize results into a standard JSON dataset dictionary
+        # The immediate candidate remains separate from every projected state.
         projected_graph = graph_to_dict(cloned_graph)
         self.clone_manager.release_clone(clone_id)
 
