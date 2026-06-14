@@ -3,6 +3,7 @@
 # Based on Revised Architecture with Router + Both Subnets
 # ============================================================
 
+
 site:
   name: "hpe-digital-twin"
   region: "blr1"
