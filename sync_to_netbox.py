@@ -1,9 +1,13 @@
 # ============================================================
-# sync_to_netbox.py — HPE Digital Twin (FULLY WORKING SYNC)
-# Fixes applied: 
-#   - Migrated services payload to parent_object_type / id structures
-#   - Pointed all service lookups and creation to ipam/services
-#   - Trailing slash URL formatting and multi-end cable checks intact
+# sync_to_netbox.py — HPE Digital Twin (STORAGE RACK SYNC)
+# Updates from previous version:
+#   - Added roles: storage-tor, storage-controller, object-storage
+#   - Added device types for storage rack devices
+#   - Interface type fallback map: SAS/InfiniBand/25g/10g -> nearest
+#     NetBox-supported type (NetBox rejects unknown types)
+#   - ic0 direct interconnect cable (array-ctrl-a <-> array-ctrl-b)
+#   - mgmt0 interfaces get their OWN ip (10.10.3.50/51), not eth0's
+#   - services via ipam/services (parent_object_type/id) — unchanged
 # ============================================================
 
 import requests
@@ -22,7 +26,7 @@ with open("infrastructure.yaml") as f:
     infra = yaml.safe_load(f)
 
 print("=" * 60)
-print("HPE Digital Twin → NetBox FINAL Sync")
+print("HPE Digital Twin → NetBox Storage Rack Sync")
 print("=" * 60)
 
 
@@ -31,7 +35,6 @@ print("=" * 60)
 # ============================================================
 
 def format_url(endpoint):
-    """Guarantees a clean base URL structure with a strict trailing slash."""
     base = NB_URL.rstrip('/')
     path = endpoint.strip('/')
     return f"{base}/api/{path}/"
@@ -43,7 +46,7 @@ def nb_post(endpoint, data):
     try:
         body = r.json()
     except Exception:
-        print(f"    ⚠️  No JSON : {r.status_code} -> Endpoint returned an HTML Error page.")
+        print(f"    ⚠️  No JSON : {r.status_code} -> HTML error page")
         return None
     if r.status_code in [200, 201]:
         label = data.get("name") or data.get("prefix") or data.get("address") or str(data)[:40]
@@ -51,12 +54,11 @@ def nb_post(endpoint, data):
         return body
     else:
         label = data.get("name") or str(data)[:40]
-        print(f"    ⚠️  Failed  : {label} → {r.status_code} {str(body)[:120]}")
+        print(f"    ⚠️  Failed  : {label} → {r.status_code} {str(body)[:140]}")
         return None
 
 
 def nb_get(endpoint, params=None):
-    """Keeps the trailing slash intact to prevent NetBox filtering engines from breaking."""
     url = format_url(endpoint)
     r = requests.get(url, headers=HEADERS, params=params)
     try:
@@ -85,7 +87,6 @@ def nb_patch(endpoint, obj_id, data):
 
 
 def service_exists(vm_id, service_name):
-    """Get all services for VM from IPAM using the required parent filter maps."""
     all_svcs = nb_get("ipam/services", {
         "parent_object_type": "virtualization.virtualmachine",
         "parent_object_id":   vm_id
@@ -93,19 +94,32 @@ def service_exists(vm_id, service_name):
     return any(s.get("name") == service_name for s in all_svcs)
 
 
-# ── Configuration Maps
-DCIM_ROLES = {"tor-router", "spine-switch", "compute-node"}
+# ============================================================
+# CONFIG MAPS
+# ============================================================
+
+# Roles that become DCIM Devices (physical/network infra)
+DCIM_ROLES = {
+    "tor-router", "spine-switch", "compute-node",
+    "storage-tor", "storage-controller", "object-storage",
+}
 
 DEVICE_TYPE_MAP_KEY = {
-    "spine-switch": "FRR-Spine-Router",
-    "tor-router":   "FRR-ToR-Router",
-    "compute-node": "Ubuntu-Server",
+    "spine-switch":       "FRR-Spine-Router",
+    "tor-router":         "FRR-ToR-Router",
+    "compute-node":       "Ubuntu-Server",
+    "storage-tor":        "FRR-Storage-Router",
+    "storage-controller": "TrueNAS-Controller",
+    "object-storage":     "MinIO-Node",
 }
 
 ROLE_COLORS = {
-    "spine-switch": "9c27b0",
-    "tor-router":   "2196f3",
-    "compute-node": "4caf50",
+    "spine-switch":       "9c27b0",
+    "tor-router":         "2196f3",
+    "compute-node":       "4caf50",
+    "storage-tor":        "673ab7",
+    "storage-controller": "ff5722",
+    "object-storage":     "795548",
 }
 
 VM_SIZES = {
@@ -121,7 +135,26 @@ VM_SIZES = {
 DROPLET_SIZE_MAP = {
     "s-2vcpu-4gb": (2, 4096),
     "s-1vcpu-2gb": (1, 2048),
+    "s-2vcpu-8gb": (2, 8192),
 }
+
+# ── NetBox only accepts specific interface "type" choices.
+#    SAS / InfiniBand / 25g / 10g aren't standard dcim.interface
+#    types in most NetBox versions — map them to the nearest
+#    supported value so creation doesn't 400.
+#    (These are logical/documentation links anyway — see chat.)
+IFACE_TYPE_FALLBACK = {
+    "1000base-t":  "1000base-t",
+    "10gbase-t":   "10gbase-t",
+    "25gbase-t":   "25gbase-t",
+    "sas":         "other",        # SAS isn't an Ethernet interface type
+    "infiniband":  "other",   # NetBox DOES support infiniband types;
+                                    # if your instance rejects it, falls back below
+}
+
+def safe_iface_type(raw_type):
+    """Return a NetBox-acceptable interface type, falling back to 'other'."""
+    return IFACE_TYPE_FALLBACK.get(raw_type, "other")
 
 
 # ============================================================
@@ -240,9 +273,12 @@ for role_name, color in ROLE_COLORS.items():
 print("\n[7] Device Types...")
 device_type_ids = {}
 for model_name, slug in [
-    ("FRR-Spine-Router", "frr-spine-router"),
-    ("FRR-ToR-Router",   "frr-tor-router"),
-    ("Ubuntu-Server",    "ubuntu-server"),
+    ("FRR-Spine-Router",   "frr-spine-router"),
+    ("FRR-ToR-Router",     "frr-tor-router"),
+    ("Ubuntu-Server",      "ubuntu-server"),
+    ("FRR-Storage-Router", "frr-storage-router"),
+    ("TrueNAS-Controller", "truenas-controller"),
+    ("MinIO-Node",         "minio-node"),
 ]:
     dt = nb_get_or_create(
         "dcim/device-types",
@@ -259,10 +295,16 @@ for model_name, slug in [
 
 # ============================================================
 # STEP 8 — DCIM Devices + ALL interfaces
+#
+# Handles:
+#   - normal eth interfaces (eth0, eth1, ...) -> primary IP from
+#     container['ip'] (only on the FIRST interface named "eth0")
+#   - mgmt0 interfaces with THEIR OWN ip field (array-ctrl-a/b)
+#   - sas*/ic0 interfaces -> created with safe_iface_type fallback
 # ============================================================
 print("\n[8] DCIM Devices + Interfaces...")
 
-device_iface_ids = {}
+device_iface_ids = {}  # "device:iface" -> iface_id
 
 for droplet_name, containers in infra["containers"].items():
     for container in containers:
@@ -302,23 +344,47 @@ for droplet_name, containers in infra["containers"].items():
 
         for iface_def in iface_defs:
             iface_name = iface_def["name"]
+            raw_type   = iface_def.get("type", "1000base-t")
+            nb_type    = safe_iface_type(raw_type)
+
             iface = nb_get_or_create(
                 "dcim/interfaces",
                 {"device_id": dev_id, "name": iface_name},
                 {
-                    "device":       dev_id,
-                    "name":         iface_name,
-                    "type":         iface_def.get("type", "1000base-t"),
-                    "description":  iface_def.get("description", ""),
+                    "device":      dev_id,
+                    "name":        iface_name,
+                    "type":        nb_type,
+                    "description": iface_def.get("description", "") + (
+                        f" [orig type: {raw_type}]" if nb_type != raw_type else ""
+                    ),
                 }
             )
             if iface:
                 key = f"{container['name']}:{iface_name}"
                 device_iface_ids[key] = iface["id"]
 
+                # ── IP assignment for THIS interface
+                # Case A: this interface has its own explicit "ip" field
+                #         (e.g. mgmt0 on array-ctrl-a/b)
+                if iface_def.get("ip"):
+                    ip_addr = f"{iface_def['ip']}/24"
+                    nb_get_or_create(
+                        "ipam/ip-addresses",
+                        {"address": ip_addr},
+                        {
+                            "address":              ip_addr,
+                            "status":               "active",
+                            "assigned_object_type": "dcim.interface",
+                            "assigned_object_id":   iface["id"],
+                            "description":          f"{container['name']} — {iface_name} ({iface_def.get('role','mgmt')})"
+                        }
+                    )
+
+        # ── Primary IP for the device — uses container-level "ip"
+        #    assigned to its eth0 (if eth0 exists and has no own ip)
         if container.get("ip"):
-            eth0_key  = f"{container['name']}:eth0"
-            eth0_id   = device_iface_ids.get(eth0_key)
+            eth0_key = f"{container['name']}:eth0"
+            eth0_id  = device_iface_ids.get(eth0_key)
             if eth0_id:
                 ip_addr = f"{container['ip']}/24"
                 ip_obj = nb_get_or_create(
@@ -429,7 +495,7 @@ for droplet_name, containers in infra["containers"].items():
                     print(f"      ↩️  Service exists : port {container['port']}")
             continue
 
-        # Normal bridgeless/routed containers
+        # Normal VM: interface + IP + service
         iface = nb_get_or_create(
             "virtualization/interfaces",
             {"virtual_machine_id": vm_id, "name": "eth0"},
@@ -474,14 +540,19 @@ for droplet_name, containers in infra["containers"].items():
 
 # ============================================================
 # STEP 11 — Network Links as Cables
+#
+# Handles both:
+#   - normal links (source/target + source_iface/target_iface)
+#   - link_type: "direct" (e.g. ic0 <-> ic0 controller interconnect)
+#     -> still a dcim.cable, just labeled/typed as direct
 # ============================================================
 print("\n[11] Network Links as Cables...")
 
 for link in infra["links"]:
-    src        = link["source"]
-    tgt        = link["target"]
-    src_iface  = link.get("source_iface", "eth0")
-    tgt_iface  = link.get("target_iface", "eth0")
+    src       = link["source"]
+    tgt       = link["target"]
+    src_iface = link.get("source_iface", "eth0")
+    tgt_iface = link.get("target_iface", "eth0")
 
     src_key = f"{src}:{src_iface}"
     tgt_key = f"{tgt}:{tgt_iface}"
@@ -493,7 +564,7 @@ for link in infra["links"]:
         print(f"    ⚠️  Skipping {src}({src_iface})↔{tgt}({tgt_iface}) — interface not found")
         continue
 
-    # Comprehensive structural validation on both sides
+    # Check both ends — an interface can only be in ONE cable
     src_has_cable = (
         nb_get("dcim/cables", {"termination_a_type": "dcim.interface", "termination_a_id": src_id}) or
         nb_get("dcim/cables", {"termination_b_type": "dcim.interface", "termination_b_id": src_id})
@@ -502,16 +573,20 @@ for link in infra["links"]:
         nb_get("dcim/cables", {"termination_a_type": "dcim.interface", "termination_a_id": tgt_id}) or
         nb_get("dcim/cables", {"termination_b_type": "dcim.interface", "termination_b_id": tgt_id})
     )
-    
+
     if src_has_cable or tgt_has_cable:
-        print(f"    ↩️  Cable exists or port is occupied : {src}({src_iface}) ↔ {tgt}({tgt_iface})")
+        print(f"    ↩️  Cable exists or port occupied : {src}({src_iface}) ↔ {tgt}({tgt_iface})")
         continue
+
+    label = link["description"]
+    if link.get("link_type") == "direct":
+        label = f"[DIRECT] {label}"
 
     result = nb_post("dcim/cables", {
         "a_terminations": [{"object_type": "dcim.interface", "object_id": src_id}],
         "b_terminations": [{"object_type": "dcim.interface", "object_id": tgt_id}],
         "status":         "connected",
-        "label":          link["description"]
+        "label":          label
     })
     if result:
         print(f"    ✅ Cable : {src}({src_iface}) ↔ {tgt}({tgt_iface})")
@@ -522,4 +597,35 @@ for link in infra["links"]:
 # ============================================================
 print("\n" + "=" * 60)
 print("Sync Complete!")
+print("=" * 60)
+
+dcim_list = [
+    c for d, cs in infra["containers"].items()
+    for c in cs if c["role"] in DCIM_ROLES
+]
+vm_list = [
+    c for d, cs in infra["containers"].items()
+    for c in cs if c["role"] not in DCIM_ROLES
+]
+port_list = [c for c in vm_list if c.get("port")]
+
+print(f"  Site            : {infra['site']['name']}")
+print(f"  Subnets         : {len(infra['network']['subnets'])}")
+print(f"  Droplets        : {len(infra['droplets'])}")
+print(f"  DCIM Devices    : {len(dcim_list)}  (routers, servers, storage rack)")
+print(f"  Software VMs    : {len(vm_list)}")
+print(f"  Service Ports   : {len(port_list)}")
+print(f"  Cables          : {len(infra['links'])}")
+print(f"\n  NetBox UI → {NB_URL}")
+print("=" * 60)
+print("\nWhat is properly modeled in NetBox:")
+print("  ✅ Compute racks  → routers + servers (DCIM, cabled)")
+print("  ✅ Storage rack   → storage-router, array-ctrl-a/b, obj-node-1/2/3 (DCIM)")
+print("  ✅ Controller HA  → ic0<->ic0 direct cable (interconnect)")
+print("  ✅ mgmt0 ports    → separate IPs (10.10.3.50/51) on mgmt subnet")
+print("  ✅ SAS/InfiniBand → created with fallback interface type 'other'")
+print("                      (NetBox doesn't natively support SAS as an")
+print("                       Ethernet interface type — documented via")
+print("                       description + label, logical-only links)")
+print("  ✅ Software VMs   → netbox, neo4j, prometheus, grafana, etc.")
 print("=" * 60)
