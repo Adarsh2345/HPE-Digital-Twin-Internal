@@ -25,9 +25,9 @@ def test_rcu_clone_isolates():
     G = _build()
     cm = CloneManager()
     clone_id, clone = cm.create_clone(G)
-    clone.remove_node("server-1")
-    assert "server-1" in G.nodes
-    assert "server-1" not in clone.nodes
+    clone.remove_node("droplet-1-tor1/server-1")
+    assert "droplet-1-tor1/server-1" in G.nodes
+    assert "droplet-1-tor1/server-1" not in clone.nodes
 
 
 def test_move_server():
@@ -35,16 +35,16 @@ def test_move_server():
     cm = CloneManager()
     _, clone = cm.create_clone(G)
     mutator = TopologyMutator()
-    result = mutator.move_server(clone, "server-1", "router-2")
+    result = mutator.move_server(clone, "droplet-1-tor1/server-1", "droplet-2-tor2/router-2")
     assert result["success"]
-    assert clone.has_edge("router-2", "server-1")
+    assert clone.has_edge("droplet-2-tor2/router-2", "droplet-1-tor1/server-1")
 
 
 def test_add_compute():
     G = _build()
     _, clone = CloneManager().create_clone(G)
     mutator = TopologyMutator()
-    result = mutator.add_compute_node(clone, "server-99", "router-1", ip="10.10.1.99")
+    result = mutator.add_compute_node(clone, "server-99", "droplet-1-tor1/router-1", ip="10.10.1.99")
     assert result["success"]
     assert "server-99" in clone.nodes
 
@@ -59,8 +59,8 @@ def test_future_projection():
     projections = predictor.project(G, steps=3)
     assert len(projections) == 3
     for i in range(1, 3):
-        assert projections[i]["nodes"].get("server-1", {}).get("cpu_percent", 0) >= \
-               projections[i-1]["nodes"].get("server-1", {}).get("cpu_percent", 0)
+        assert projections[i]["nodes"].get("droplet-1-tor1/server-1", {}).get("cpu_percent", 0) >= \
+               projections[i-1]["nodes"].get("droplet-1-tor1/server-1", {}).get("cpu_percent", 0)
 
 
 def test_full_simulator():
@@ -70,7 +70,7 @@ def test_full_simulator():
     for u, v in G.edges:
         G.edges[u, v]["metrics"] = {"latency_ms": 10, "packet_loss_percent": 0.02}
     sim = Simulator()
-    result = sim.run(G, "move_server", {"server_id": "server-1", "target_router": "router-2"})
+    result = sim.run(G, "move_server", {"server_id": "droplet-1-tor1/server-1", "target_router": "droplet-2-tor2/router-2"})
     assert result["success"]
     assert "projected_graph" in result
     assert len(result["projections"]) == 3
