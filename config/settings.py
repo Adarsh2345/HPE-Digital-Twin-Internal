@@ -19,7 +19,7 @@ NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD", "password")
 
 # NetBox
 NETBOX_URL = os.getenv("NETBOX_URL", "http://localhost:8080")
-NETBOX_TOKEN = os.getenv("NETBOX_TOKEN", "demo-token-12345")
+NETBOX_TOKEN = os.getenv("NETBOX_TOKEN", "")
 
 # Prometheus
 PROMETHEUS_URL = os.getenv("PROMETHEUS_URL", "http://localhost:9090")
@@ -34,9 +34,18 @@ DEBUG = os.getenv("DEBUG", "true").lower() == "true"
 
 # InfluxDB Configuration
 INFLUXDB_URL = os.getenv("INFLUXDB_URL", "http://localhost:8086")
-INFLUXDB_TOKEN = os.getenv("INFLUXDB_TOKEN", "my-super-secret-admin-token-12345")
+INFLUXDB_TOKEN = os.getenv("INFLUXDB_TOKEN", "")
 INFLUXDB_ORG = os.getenv("INFLUXDB_ORG", "hpe-digital-twin-org")
 INFLUXDB_BUCKET = os.getenv("INFLUXDB_BUCKET", "telemetry_bucket")
+
+# Optional natural-language parser
+ENABLE_LLM_PARSER = os.getenv("ENABLE_LLM_PARSER", "false").lower() == "true"
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "")
+GEMINI_TIMEOUT_SECONDS = float(os.getenv("GEMINI_TIMEOUT_SECONDS", "5"))
+
+# Durable local simulation audit
+SIMULATION_DB_PATH = os.getenv("SIMULATION_DB_PATH", "/tmp/hpe_digital_twin_simulations.sqlite3")
 
 
 # Constraints

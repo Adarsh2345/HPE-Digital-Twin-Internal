@@ -66,3 +66,14 @@ pip-delete-this-directory.txt
 *.swo
 .DS_Store
 Thumbs.db
+.venv/
+.coverage
+.pytest_cache/
+__pycache__/
+*.pyc
+*.joblib
+*.pdf
+*.sqlite
+*.sqlite3
+.env
+.codex/

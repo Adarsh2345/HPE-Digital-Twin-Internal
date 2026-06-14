@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <style>
+    @page { size: A4; margin: 18mm; }
+    body { font: 12px Arial, sans-serif; color: #12263a; }
+    h1, h2 { color: #0b1f33; }
+    header { border-bottom: 5px solid #01a982; margin-bottom: 18px; }
+    .allowed { color: #007a5e; } .denied { color: #c62828; }
+    table { width: 100%; border-collapse: collapse; margin: 8px 0 18px; }
+    th, td { border: 1px solid #ccd5dd; padding: 6px; text-align: left; }
+    th { background: #e9f5f1; }
+    .meta { color: #526779; }
+  </style>
+</head>
+<body>
+<header><h1>HPE Digital Twin Simulation Report</h1></header>
+<p class="meta">Simulation {{ result.sim_id }} | {{ result.timestamp }} | Graph {{ result.graph_version }}</p>
+<h2 class="{{ 'allowed' if result.allowed else 'denied' }}">{{ result.verdict }}</h2>
+<p><strong>Request:</strong> {{ result.request_text or result.action }}</p>
+<p><strong>Parser:</strong> {{ result.parser_used }} | <strong>Telemetry:</strong> {{ result.telemetry_provenance }}</p>
+<h2>Current Violations</h2>
+<table><tr><th>Severity</th><th>Code</th><th>Device</th><th>Message</th></tr>
+{% for v in result.current_violations %}<tr><td>{{ v.severity }}</td><td>{{ v.code }}</td><td>{{ v.device_id }}</td><td>{{ v.message }}</td></tr>
+{% else %}<tr><td colspan="4">None</td></tr>{% endfor %}</table>
+<h2>Projected Violations</h2>
+<table><tr><th>Step</th><th>Severity</th><th>Code</th><th>Message</th></tr>
+{% for v in result.projected_violations %}<tr><td>{{ v.projection_step }}</td><td>{{ v.severity }}</td><td>{{ v.code }}</td><td>{{ v.message }}</td></tr>
+{% else %}<tr><td colspan="4">None</td></tr>{% endfor %}</table>
+<h2>Blast Radius</h2>
+<p>{{ result.blast_radius.affected_count if result.blast_radius else 0 }} affected devices.</p>
+{% if result.blast_radius %}<p>{{ result.blast_radius.paths }}</p>{% endif %}
+<h2>Ranked Alternatives</h2>
+<table><tr><th>Target</th><th>Score</th><th>Capacity</th><th>Warnings</th></tr>
+{% for a in result.alternatives %}<tr><td>{{ a.target }}</td><td>{{ a.score }}</td><td>{{ a.capacity }}</td><td>{{ a.warnings }}</td></tr>
+{% else %}<tr><td colspan="4">None</td></tr>{% endfor %}</table>
+<h2>Remediation</h2><p>{{ result.remediation }}</p>
+<p class="meta">Execution time: {{ "%.2f"|format(result.execution_time_ms) }} ms. Anomaly Detection - Synthetic Baseline Demo.</p>
+</body></html>
