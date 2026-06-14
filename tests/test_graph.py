@@ -21,13 +21,14 @@ def _build():
 
 def test_graph_builds():
     G = _build()
-    assert G.number_of_nodes() == 10
-    assert G.number_of_edges() == 6
+    assert G.number_of_nodes() == 26
+    assert G.number_of_edges() == 13
+    assert sum(data["link_count"] for _, _, data in G.edges(data=True)) == 15
 
 
 def test_path_server1_to_server3():
     G = _build()
-    assert path_exists(G, "server-1", "spine-router") or path_exists(G, "spine-router", "server-1")
+    assert path_exists(G, "droplet-3-mgmt/spine-router", "droplet-1-tor1/server-1")
 
 
 def test_derive_node_state_healthy():
@@ -54,9 +55,9 @@ def test_derived_state_builder():
     G = _build()
     ds = DerivedStateBuilder()
     snapshot = {
-        "nodes": {"server-1": {"cpu_percent": 35, "memory_percent": 45, "power_watts": 180}},
-        "edges": {"router-1->server-1": {"latency_ms": 8, "packet_loss_percent": 0.01}},
+        "nodes": {"droplet-1-tor1/server-1": {"cpu_percent": 35, "memory_percent": 45, "power_watts": 180}},
+        "edges": {"droplet-1-tor1/router-1->droplet-1-tor1/server-1": {"latency_ms": 8, "packet_loss_percent": 0.01}},
     }
     derived = ds.build_derived_state(G, snapshot)
-    assert derived.nodes["server-1"]["state"] == "healthy"
-    assert derived.nodes["server-1"]["metrics"]["cpu_percent"] == 35
+    assert derived.nodes["droplet-1-tor1/server-1"]["state"] == "healthy"
+    assert derived.nodes["droplet-1-tor1/server-1"]["metrics"]["cpu_percent"] == 35
