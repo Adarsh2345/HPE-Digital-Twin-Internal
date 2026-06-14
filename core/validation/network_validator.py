@@ -16,7 +16,11 @@ class NetworkValidator:
             edge = G.edges[u, v]
             latency = edge.get("metrics", {}).get("latency_ms", 0)
             loss = edge.get("metrics", {}).get("packet_loss_percent", 0)
-            link = f"{u}→{v}"
+            
+            # 🟢 EXTENDED: Incorporate port interfaces directly into violation reports
+            src_p = edge.get("source_iface", "eth0")
+            tgt_p = edge.get("target_iface", "eth0")
+            link = f"{u}[{src_p}] → {v}[{tgt_p}]"
 
             if latency >= NETWORK_LATENCY_SLA_MS:
                 violations.append(

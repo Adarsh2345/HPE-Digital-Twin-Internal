@@ -1,6 +1,6 @@
 """
 core/validation/storage_validator.py
-Checks disk IOPS against NVMe hardware limit (4000 IOPS max).
+Checks disk IOPS against NVMe/SAS hardware limits (4000 IOPS max).
 """
 import networkx as nx
 from config.settings import STORAGE_IOPS_LIMIT
@@ -14,8 +14,16 @@ class StorageValidator:
 
         for node_id in G.nodes:
             node = G.nodes[node_id]
-            if node.get("role") not in (NODE_ROLES["COMPUTE"], NODE_ROLES["MIDDLEWARE"], NODE_ROLES["NEO4J"]):
+            
+            # 🟢 EXTENDED: Monitor block IOPS headroom thresholds on the new storage controllers
+            if node.get("role") not in (
+                NODE_ROLES["COMPUTE"], 
+                NODE_ROLES["MIDDLEWARE"], 
+                NODE_ROLES["NEO4J"],
+                NODE_ROLES["STORAGE_CONTROLLER"]
+            ):
                 continue
+                
             iops = node.get("metrics", {}).get("disk_iops", 0)
             if iops >= STORAGE_IOPS_LIMIT:
                 violations.append(

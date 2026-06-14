@@ -1,3 +1,9 @@
+"""
+config/constants.py
+System-wide architectural threshold definitions, node states, and role registries.
+Extended to fully support the production Storage Rack and Monitoring planes.
+"""
+
 NODE_STATES = {
     "HEALTHY": "healthy",
     "WARNING": "warning",
@@ -19,6 +25,13 @@ NODE_ROLES = {
     "NETBOX": "infrastructure-docs",
     "NEO4J": "graph-database",
     "MIDDLEWARE": "middleware",
+    # 🟢 ADDED: Core production roles from your new storage rack blueprint
+    "STORAGE_TOR": "storage-tor",
+    "STORAGE_CONTROLLER": "storage-controller",
+    "OBJECT_STORAGE": "object-storage",
+    "METRICS_COLLECTOR": "metrics-collector",
+    "METRICS_EXPORTER": "metrics-exporter",
+    "CONTAINER_METRICS": "container-metrics",
 }
 
 WARNING_THRESHOLDS = {

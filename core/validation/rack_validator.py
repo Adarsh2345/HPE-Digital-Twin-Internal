@@ -14,6 +14,13 @@ U_SIZE = {
     NODE_ROLES["NETBOX"]: 2,
     NODE_ROLES["NEO4J"]: 2,
     NODE_ROLES["MIDDLEWARE"]: 1,
+    # 🟢 ADDED: U-Space form factors for your new production storage rack and collectors
+    NODE_ROLES["STORAGE_TOR"]: 2,
+    NODE_ROLES["STORAGE_CONTROLLER"]: 2,
+    NODE_ROLES["OBJECT_STORAGE"]: 1,
+    NODE_ROLES["METRICS_COLLECTOR"]: 2,
+    NODE_ROLES["METRICS_EXPORTER"]: 1,
+    NODE_ROLES["CONTAINER_METRICS"]: 1,
 }
 
 
@@ -27,7 +34,7 @@ class RackValidator:
             node = G.nodes[node_id]
             droplet = node.get("droplet", "unknown")
             role = node.get("role", "")
-            u = U_SIZE.get(role, 1)
+            u = U_SIZE.get(role, 1) # Default to 1U if not explicitly matched
             droplet_u[droplet] = droplet_u.get(droplet, 0) + u
 
         for droplet, total_u in droplet_u.items():

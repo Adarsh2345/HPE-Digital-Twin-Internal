@@ -1,6 +1,7 @@
 """
 core/parser/topology_loader.py
 Converts parsed YAML into structured topology data ready for NetworkX.
+EXTENDED: Preserves physical interface port parameters for precise impact mapping.
 """
 from core.parser.yaml_parser import YAMLParser
 from config.constants import NODE_ROLES
@@ -43,6 +44,8 @@ class TopologyLoader:
                 "subnet": raw.get("droplet_meta", {}).get("subnet", ""),
                 "size": raw.get("droplet_meta", {}).get("size", ""),
                 "tags": raw.get("droplet_meta", {}).get("tags", []),
+                # 🟢 ADDED: Retain individual host port interface lists in the node graph definition
+                "interfaces": raw.get("interfaces", []),
                 "state": "healthy",
                 "metrics": {},
             }
@@ -55,6 +58,10 @@ class TopologyLoader:
             edge = {
                 "source": link["source"],
                 "target": link["target"],
+                # 🟢 ADDED: Map explicit physical interfaces and link types onto the network edges
+                "source_iface": link.get("source_iface", "eth0"),
+                "target_iface": link.get("target_iface", "eth0"),
+                "link_type": link.get("link_type", "ethernet"),
                 "description": link.get("description", ""),
                 "state": "active",
                 "metrics": {},
