@@ -1,0 +1,107 @@
+{
+  "category": "compute",
+  "results": [
+    {
+      "id": "inject_cpu_warning",
+      "label": "CPU warning-level stress on server-1 (75%)",
+      "success": true,
+      "allowed": false,
+      "violations": [
+        "Compute Overload on server-1: CPU=95.7% MEM=63.8% (Limit: 95.0%)."
+      ],
+      "warnings": [],
+      "recommendations": [
+        "Scale server-1 workload horizontally \u2014 add a sibling compute node under the same ToR switch and redistribute processes."
+      ],
+      "future_violations": [
+        "Projected Step 5: server-1 CPU=95.7% MEM=63.8%."
+      ],
+      "projections": 5,
+      "clone_id": "c1a39849"
+    },
+    {
+      "id": "inject_cpu_critical",
+      "label": "CPU critical breach on server-1 (96%)",
+      "success": true,
+      "allowed": false,
+      "violations": [
+        "Compute Overload on server-1: CPU=100.0% MEM=69.6% (Limit: 95.0%)."
+      ],
+      "warnings": [],
+      "recommendations": [
+        "Scale server-1 workload horizontally \u2014 add a sibling compute node under the same ToR switch and redistribute processes."
+      ],
+      "future_violations": [
+        "Projected Step 1: server-1 CPU=100.0% MEM=61.8%.",
+        "Projected Step 2: server-1 CPU=100.0% MEM=63.6%.",
+        "Projected Step 3: server-1 CPU=100.0% MEM=65.6%.",
+        "Projected Step 4: server-1 CPU=100.0% MEM=67.5%.",
+        "Projected Step 5: server-1 CPU=100.0% MEM=69.6%."
+      ],
+      "projections": 5,
+      "clone_id": "32a3ddfe"
+    },
+    {
+      "id": "inject_memory_critical",
+      "label": "Memory critical breach on server-2 (96%)",
+      "success": true,
+      "allowed": false,
+      "violations": [
+        "Compute Overload on server-2: CPU=57.4% MEM=100.0% (Limit: 95.0%)."
+      ],
+      "warnings": [],
+      "recommendations": [
+        "Scale server-2 workload horizontally \u2014 add a sibling compute node under the same ToR switch and redistribute processes."
+      ],
+      "future_violations": [
+        "Projected Step 1: server-2 CPU=47.2% MEM=98.9%.",
+        "Projected Step 2: server-2 CPU=49.6% MEM=100.0%.",
+        "Projected Step 3: server-2 CPU=52.1% MEM=100.0%.",
+        "Projected Step 4: server-2 CPU=54.7% MEM=100.0%.",
+        "Projected Step 5: server-2 CPU=57.4% MEM=100.0%."
+      ],
+      "projections": 5,
+      "clone_id": "959ea0d5"
+    },
+    {
+      "id": "inject_power_breach",
+      "label": "Power envelope breach \u2014 high-draw workload on server-3 (400W)",
+      "success": true,
+      "allowed": false,
+      "violations": [
+        "Compute Overload on server-3: CPU=98.4% MEM=76.5% (Limit: 95.0%)."
+      ],
+      "warnings": [],
+      "recommendations": [
+        "Scale server-3 workload horizontally \u2014 add a sibling compute node under the same ToR switch and redistribute processes."
+      ],
+      "future_violations": [
+        "Projected Step 3: server-3 CPU=98.4% MEM=76.5%."
+      ],
+      "projections": 3,
+      "clone_id": "7a01b7c2"
+    },
+    {
+      "id": "inject_compute_future_breach",
+      "label": "Near-limit CPU that breaches on projected step 3 (88%)",
+      "success": true,
+      "allowed": false,
+      "violations": [
+        "Compute Overload on server-1: CPU=100.0% MEM=58.0% (Limit: 95.0%)."
+      ],
+      "warnings": [],
+      "recommendations": [
+        "Scale server-1 workload horizontally \u2014 add a sibling compute node under the same ToR switch and redistribute processes."
+      ],
+      "future_violations": [
+        "Projected Step 2: server-1 CPU=97.0% MEM=53.0%.",
+        "Projected Step 3: server-1 CPU=100.0% MEM=54.6%.",
+        "Projected Step 4: server-1 CPU=100.0% MEM=56.3%.",
+        "Projected Step 5: server-1 CPU=100.0% MEM=58.0%."
+      ],
+      "projections": 5,
+      "clone_id": "642f4350"
+    }
+  ],
+  "elapsed_s": 0.0040340423583984375
+}

@@ -1,0 +1,84 @@
+{
+  "category": "network",
+  "results": [
+    {
+      "id": "inject_latency_warning",
+      "label": "Network latency warning on spine->router-1 (120ms)",
+      "success": true,
+      "allowed": false,
+      "violations": [
+        "Network SLA Breach on spine-router\u2192router-1: Latency=151.2ms (SLA Limit: 150.0ms)."
+      ],
+      "warnings": [],
+      "recommendations": [
+        "Inspect FRRouting BGP path on spine-router\u2192router-1 \u2014 consider enabling ECMP load-balancing or switching to an alternate spine route."
+      ],
+      "future_violations": [
+        "Projected Step 3: spine-router->router-1 latency=151.2ms."
+      ],
+      "projections": 3,
+      "clone_id": "4093577e"
+    },
+    {
+      "id": "inject_latency_sla_breach",
+      "label": "Network SLA breach on spine->router-1 (160ms)",
+      "success": true,
+      "allowed": false,
+      "violations": [
+        "Network SLA Breach on spine-router\u2192router-1: Latency=201.6ms (SLA Limit: 150.0ms)."
+      ],
+      "warnings": [],
+      "recommendations": [
+        "Inspect FRRouting BGP path on spine-router\u2192router-1 \u2014 consider enabling ECMP load-balancing or switching to an alternate spine route."
+      ],
+      "future_violations": [
+        "Projected Step 1: spine-router->router-1 latency=172.8ms.",
+        "Projected Step 2: spine-router->router-1 latency=186.6ms.",
+        "Projected Step 3: spine-router->router-1 latency=201.6ms."
+      ],
+      "projections": 3,
+      "clone_id": "8e45fb07"
+    },
+    {
+      "id": "inject_packet_loss_breach",
+      "label": "Packet loss breach on router-2->server-3 (7%)",
+      "success": true,
+      "allowed": false,
+      "violations": [
+        "Packet Loss Breach on router-2\u2192server-3: 11.20% loss."
+      ],
+      "warnings": [],
+      "recommendations": [
+        "Check physical / virtual NIC on router-2\u2192server-3 \u2014 packet loss indicates a flapping link or MTU mismatch in the Docker bridge network."
+      ],
+      "future_violations": [],
+      "projections": 3,
+      "clone_id": "b6a209f4"
+    },
+    {
+      "id": "inject_combined_network_failure",
+      "label": "Combined latency + packet loss (200ms, 8%) on spine->router-2",
+      "success": true,
+      "allowed": false,
+      "violations": [
+        "Network SLA Breach on spine-router\u2192router-2: Latency=293.9ms (SLA Limit: 150.0ms).",
+        "Packet Loss Breach on spine-router\u2192router-2: 16.00% loss."
+      ],
+      "warnings": [],
+      "recommendations": [
+        "Inspect FRRouting BGP path on spine-router\u2192router-2 \u2014 consider enabling ECMP load-balancing or switching to an alternate spine route.",
+        "Check physical / virtual NIC on spine-router\u2192router-2 \u2014 packet loss indicates a flapping link or MTU mismatch in the Docker bridge network."
+      ],
+      "future_violations": [
+        "Projected Step 1: spine-router->router-2 latency=216.0ms.",
+        "Projected Step 2: spine-router->router-2 latency=233.3ms.",
+        "Projected Step 3: spine-router->router-2 latency=251.9ms.",
+        "Projected Step 4: spine-router->router-2 latency=272.1ms.",
+        "Projected Step 5: spine-router->router-2 latency=293.9ms."
+      ],
+      "projections": 5,
+      "clone_id": "fdeb6963"
+    }
+  ],
+  "elapsed_s": 0.0044214725494384766
+}
