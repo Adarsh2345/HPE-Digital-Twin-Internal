@@ -7,6 +7,11 @@ services:
     ports:
       - "6379:6379"
     restart: always
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 3s
+      timeout: 3s
+      retries: 5
 
   twin-neo4j:
     image: neo4j:latest
@@ -17,10 +22,35 @@ services:
     environment:
       - NEO4J_AUTH=neo4j/password
     restart: always
-    # ADD THIS HEALTHCHECK BLOCK BELOW:
     healthcheck:
       test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:7474/ || exit 1"]
       interval: 3s
       timeout: 3s
       retries: 10
       start_period: 5s
+
+  # 🟢 ADDED: Unified InfluxDB 2.7 Time-Series Storage Engine
+  twin-influxdb:
+    image: influxdb:2.7-alpine
+    container_name: twin-influxdb
+    ports:
+      - "8086:8086"
+    environment:
+      - DOCKER_INFLUXDB_INIT_MODE=setup
+      - DOCKER_INFLUXDB_INIT_USERNAME=admin
+      - DOCKER_INFLUXDB_INIT_PASSWORD=password12345
+      - DOCKER_INFLUXDB_INIT_ORG=hpe-digital-twin-org
+      - DOCKER_INFLUXDB_INIT_BUCKET=telemetry_bucket
+      - DOCKER_INFLUXDB_INIT_ADMIN_TOKEN=my-super-secret-admin-token-12345
+    volumes:
+      - influxdb_data:/var/lib/influxdb2
+    restart: always
+    healthcheck:
+      test: ["CMD", "influx", "ping"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+
+volumes:
+  influxdb_data:

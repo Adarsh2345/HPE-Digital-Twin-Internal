@@ -1,8 +1,8 @@
 """
 core/orchestrator.py
 Central system orchestrator.
-Phase 1: Bootstrap — parse YAML → build topology graph → sync to Neo4j
-Phase 2: 12s async loop — scrape metrics → derive state → cache to Redis & Neo4j
+Phase 1: Bootstrap — parse YAML → build topology graph → sync to Neo4j & InfluxDB
+Phase 2: 12s async loop — scrape metrics → derive state → cache to Redis, Neo4j, & InfluxDB
 FIXED: Connection timeout limits implemented to prevent silent socket hangs under CLI run.
 """
 import asyncio
@@ -19,6 +19,7 @@ from config.settings import (
     NEO4J_URI, NEO4J_USER, NEO4J_PASSWORD,
 )
 from config.constants import REDIS_KEYS
+from integrations.influxdb.influx_client import InfluxClient
 
 logger = logging.getLogger(__name__)
 
@@ -35,6 +36,7 @@ class Orchestrator:
         self.processor = None
         self.state_builder = None
         self.neo4j_client = None
+        self.influx_client = None # 🟢 Allocated slot in memory map
 
         self._redis = None
         self._loop_task: Optional[asyncio.Task] = None
@@ -58,6 +60,7 @@ class Orchestrator:
         self.scraper = PrometheusScraper()
         self.processor = TelemetryProcessor()
         self.state_builder = DerivedStateBuilder()
+        self.influx_client = InfluxClient() # 🟢 Instantiated cleanly here
 
         self.parser = YAMLParser(INFRASTRUCTURE_YAML)
         self.parser.load()
@@ -74,6 +77,7 @@ class Orchestrator:
         # Fire resilient fallback connection hooks
         self._connect_redis()
         self._connect_and_sync_neo4j()
+        self.influx_client.connect() # 🟢 Establish structural socket connection link
 
     def _connect_redis(self):
         try:
@@ -95,7 +99,6 @@ class Orchestrator:
             from core.graph.graph_serializer import graph_to_dict
 
             logger.info(f"Connecting to Neo4j transaction graph instance on {NEO4J_URI}...")
-            # We enforce a tight 1000ms connection check parameter to break socket blocks
             self.neo4j_client = Neo4jClient(uri=NEO4J_URI, user=NEO4J_USER, password=NEO4J_PASSWORD)
             
             base_dict = graph_to_dict(self.initial_graph)
@@ -129,8 +132,10 @@ class Orchestrator:
         processed = self.processor.process(raw_snapshot)
 
         self.derived_graph = self.state_builder.build_derived_state(self.initial_graph, processed)
+        
         self._cache_to_redis(processed)
         self._sync_to_neo4j()
+        self._sync_to_influxdb() # 🟢 Auto-invoke pipeline stream syncs
 
     def _cache_to_redis(self, snapshot: dict):
         if self._redis is None:
@@ -152,6 +157,16 @@ class Orchestrator:
         except Exception as e:
             logger.warning(f"Neo4j snapshot backup skipped: {e}")
 
+    def _sync_to_influxdb(self):
+        if self.influx_client is None:
+            return
+        try:
+            from core.graph.graph_serializer import graph_to_dict
+            derived_dict = graph_to_dict(self.derived_graph)
+            self.influx_client.write_snapshot_points(derived_dict) # 🟢 Write live points
+        except Exception as e:
+            logger.warning(f"InfluxDB time-series streaming skipped: {e}")
+
     def get_derived_graph(self) -> nx.DiGraph:
         if self.derived_graph is None:
             raise RuntimeError("Orchestrator not bootstrapped yet.")
@@ -169,6 +184,7 @@ class Orchestrator:
             "edges": self.initial_graph.number_of_edges() if self.initial_graph else 0,
             "redis_connected": self._redis is not None,
             "neo4j_connected": self.neo4j_client is not None,
+            "influx_connected": self.influx_client is not None and self.influx_client.write_api is not None,
         }
 
 

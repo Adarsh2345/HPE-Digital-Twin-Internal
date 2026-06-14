@@ -32,6 +32,13 @@ API_HOST = os.getenv("API_HOST", "0.0.0.0")
 API_PORT = int(os.getenv("API_PORT", 5000))
 DEBUG = os.getenv("DEBUG", "true").lower() == "true"
 
+# InfluxDB Configuration
+INFLUXDB_URL = os.getenv("INFLUXDB_URL", "http://localhost:8086")
+INFLUXDB_TOKEN = os.getenv("INFLUXDB_TOKEN", "my-super-secret-admin-token-12345")
+INFLUXDB_ORG = os.getenv("INFLUXDB_ORG", "hpe-digital-twin-org")
+INFLUXDB_BUCKET = os.getenv("INFLUXDB_BUCKET", "telemetry_bucket")
+
+
 # Constraints
 POWER_LIMIT_WATTS = float(os.getenv("POWER_LIMIT_WATTS", 1400.0))
 RACK_U_LIMIT = int(os.getenv("RACK_U_LIMIT", 42))
