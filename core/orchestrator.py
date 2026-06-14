@@ -10,6 +10,7 @@ import time
 import logging
 import json
 import networkx as nx
+import threading
 from typing import Optional
 
 from config.settings import (
@@ -42,6 +43,7 @@ class Orchestrator:
         self._loop_task: Optional[asyncio.Task] = None
         self._tick_count = 0
         self._last_tick: float = 0.0
+        self._graph_lock = threading.Lock()
 
     def bootstrap(self):
         logger.info("============================================================")
@@ -70,7 +72,8 @@ class Orchestrator:
 
         builder = TopologyBuilder()
         self.initial_graph = builder.build(self.topology)
-        self.derived_graph = self.initial_graph.copy()
+        with self._graph_lock:
+            self.derived_graph = self.initial_graph.copy()
 
         logger.info(f"Topology compiled cleanly: {self.initial_graph.number_of_nodes()} nodes loaded.")
 
@@ -126,12 +129,20 @@ class Orchestrator:
         nodes = [{"id": n, **self.initial_graph.nodes[n]} for n in self.initial_graph.nodes]
         edges = [{"source": u, "target": v, **self.initial_graph.edges[u, v]} for u, v in self.initial_graph.edges]
 
-        generator = MetricsGenerator(chaos_mode=self.chaos_engine.is_active)
+        generator = MetricsGenerator(chaos_mode=False)
         self.scraper.set_generator(generator)
         raw_snapshot = await self.scraper.scrape(nodes, edges)
+        raw_snapshot = self.chaos_engine.apply(raw_snapshot, self.initial_graph)
         processed = self.processor.process(raw_snapshot)
 
-        self.derived_graph = self.state_builder.build_derived_state(self.initial_graph, processed)
+        published = self.state_builder.build_derived_state(self.initial_graph, processed)
+        published.graph.update(
+            version=f"{self.initial_graph.graph.get('version', 'graph')}:{self._tick_count}",
+            telemetry_provenance="Synthetic Demo",
+            telemetry_timestamp=processed.get("processed_at"),
+        )
+        with self._graph_lock:
+            self.derived_graph = published
         
         self._cache_to_redis(processed)
         self._sync_to_neo4j()
@@ -168,9 +179,10 @@ class Orchestrator:
             logger.warning(f"InfluxDB time-series streaming skipped: {e}")
 
     def get_derived_graph(self) -> nx.DiGraph:
-        if self.derived_graph is None:
-            raise RuntimeError("Orchestrator not bootstrapped yet.")
-        return self.derived_graph
+        with self._graph_lock:
+            if self.derived_graph is None:
+                raise RuntimeError("Orchestrator not bootstrapped yet.")
+            return self.derived_graph
 
     def get_topology_dict(self) -> dict:
         return self.topology or {}
