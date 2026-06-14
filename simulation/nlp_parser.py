@@ -102,18 +102,26 @@ def _gemini_parse(text: str, inventory: set[str]) -> SimulationRequest | None:
     try:
         from google import genai
         from google.genai import types
-        timeout_ms = int(float(os.getenv("GEMINI_TIMEOUT_SECONDS", "5")) * 1000)
+        timeout_ms = int(max(10.0, float(os.getenv("GEMINI_TIMEOUT_SECONDS", "10"))) * 1000)
         client = genai.Client(api_key=key, http_options=types.HttpOptions(timeout=timeout_ms))
         response = client.models.generate_content(
             model=model,
             contents=(
-                "Return JSON only for one supported simulation action. "
+                "Return one flat JSON object only. Do not nest fields under params or parameters. "
                 "Do not invent inventory IDs. Supported actions: move_server, add_compute, "
                 "remove_node, inject_compute, inject_network, inject_storage, migrate_rack, "
-                f"blast_radius_query. Inventory: {sorted(inventory)}. Request: {text}"
+                "blast_radius_query. For move_server use exactly action, server_id, and "
+                "target_router_id. Inventory IDs must be copied exactly. "
+                f"Inventory: {sorted(inventory)}. Request: {text}"
             ),
+            config=types.GenerateContentConfig(response_mime_type="application/json"),
         )
         payload = json.loads(response.text)
+        nested = payload.pop("parameters", payload.pop("params", {}))
+        if isinstance(nested, dict):
+            payload.update(nested)
+        if payload.get("action") == "move_server" and "destination_id" in payload:
+            payload["target_router_id"] = payload.pop("destination_id")
         request = normalize_request({**payload, "request_text": text, "parser_used": "gemini"})
         supplied = {value for key, value in request.model_dump().items() if key.endswith("_id") and value}
         if inventory and not supplied.issubset(inventory):
