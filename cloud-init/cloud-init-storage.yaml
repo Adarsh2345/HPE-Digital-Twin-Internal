@@ -1,0 +1,158 @@
+#cloud-config
+# cloud-init for droplet-4-storage
+# Installs Docker, deploys docker-compose.yml, and starts containers
+
+package_update: true
+package_upgrade: false
+
+packages:
+  - apt-transport-https
+  - ca-certificates
+  - curl
+  - gnupg
+  - lsb-release
+
+write_files:
+  - path: /opt/docker-compose/docker-compose.yml
+    permissions: "0644"
+    content: |
+      version: "3.9"
+
+      networks:
+        storage-net:
+          driver: bridge
+          ipam:
+            config:
+              - subnet: "10.10.4.0/24"
+
+      services:
+        storage-router:
+          image: frrouting/frr
+          container_name: storage-router
+          cap_add:
+            - NET_ADMIN
+            - SYS_ADMIN
+          networks:
+            storage-net:
+              ipv4_address: "10.10.4.1"
+          restart: unless-stopped
+          volumes:
+            - /etc/frr:/etc/frr
+
+        array-ctrl-a:
+          image: ubuntu:24.04
+          container_name: array-ctrl-a
+          command: sleep infinity
+          networks:
+            storage-net:
+              ipv4_address: "10.10.4.11"
+          restart: unless-stopped
+          cap_add:
+            - NET_ADMIN
+
+        array-ctrl-b:
+          image: ubuntu:24.04
+          container_name: array-ctrl-b
+          command: sleep infinity
+          networks:
+            storage-net:
+              ipv4_address: "10.10.4.12"
+          restart: unless-stopped
+          cap_add:
+            - NET_ADMIN
+
+        obj-node-1:
+          image: minio/minio
+          container_name: obj-node-1
+          command: server /data --console-address ":9001"
+          networks:
+            storage-net:
+              ipv4_address: "10.10.4.21"
+          ports:
+            - "9000:9000"
+            - "9001:9001"
+          restart: unless-stopped
+          environment:
+            - MINIO_ROOT_USER=admin
+            - MINIO_ROOT_PASSWORD=admin123
+          volumes:
+            - minio-data-1:/data
+
+        obj-node-2:
+          image: minio/minio
+          container_name: obj-node-2
+          command: server /data --console-address ":9001"
+          networks:
+            storage-net:
+              ipv4_address: "10.10.4.22"
+          ports:
+            - "9002:9000"
+            - "9003:9001"
+          restart: unless-stopped
+          environment:
+            - MINIO_ROOT_USER=admin
+            - MINIO_ROOT_PASSWORD=admin123
+          volumes:
+            - minio-data-2:/data
+
+        obj-node-3:
+          image: minio/minio
+          container_name: obj-node-3
+          command: server /data --console-address ":9001"
+          networks:
+            storage-net:
+              ipv4_address: "10.10.4.23"
+          ports:
+            - "9004:9000"
+            - "9005:9001"
+          restart: unless-stopped
+          environment:
+            - MINIO_ROOT_USER=admin
+            - MINIO_ROOT_PASSWORD=admin123
+          volumes:
+            - minio-data-3:/data
+
+        node-exporter:
+          image: prom/node-exporter:latest
+          container_name: node-exporter
+          pid: host
+          network_mode: host
+          restart: unless-stopped
+          volumes:
+            - /proc:/host/proc:ro
+            - /sys:/host/sys:ro
+            - /:/rootfs:ro
+          command:
+            - "--path.procfs=/host/proc"
+            - "--path.sysfs=/host/sys"
+            - "--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)"
+
+        cadvisor:
+          image: gcr.io/cadvisor/cadvisor:latest
+          container_name: cadvisor
+          privileged: true
+          network_mode: host
+          restart: unless-stopped
+          volumes:
+            - /:/rootfs:ro
+            - /var/run:/var/run:ro
+            - /sys:/sys:ro
+            - /var/lib/docker/:/var/lib/docker:ro
+            - /dev/disk/:/dev/disk:ro
+
+      volumes:
+        minio-data-1:
+        minio-data-2:
+        minio-data-3:
+
+runcmd:
+  # Install Docker via official script
+  - curl -fsSL https://get.docker.com | bash
+  - systemctl enable docker
+  - systemctl start docker
+  # Install Docker Compose v2 plugin
+  - mkdir -p /usr/local/lib/docker/cli-plugins
+  - curl -SL "https://github.com/docker/compose/releases/latest/download/docker-compose-linux-x86_64" -o /usr/local/lib/docker/cli-plugins/docker-compose
+  - chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
+  # Start containers
+  - cd /opt/docker-compose && docker compose up -d
