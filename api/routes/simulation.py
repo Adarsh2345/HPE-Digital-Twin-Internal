@@ -19,6 +19,15 @@ def run_simulation(payload: dict = Body(...)):
     try:
         graph = orchestrator.get_derived_graph()
         request = parse_request(payload["request_text"], graph.nodes) if set(payload) == {"request_text"} else normalize_request(payload)
+        if request.parser_used == "fallback":
+            raise HTTPException(
+                status_code=422,
+                detail=[{
+                    "code": "NLP_REQUEST_UNRESOLVED",
+                    "path": "request_text",
+                    "message": "Request could not be mapped safely to a supported simulation action",
+                }],
+            )
         result = engine.run(graph, request)
         audit.save(request, result, render_html(result))
         return result.model_dump(mode="json")
@@ -41,7 +50,17 @@ def parse_simulation(payload: dict = Body(...)):
         inventory = orchestrator.get_derived_graph().nodes
     except RuntimeError:
         inventory = ()
-    return parse_request(text, inventory).model_dump(mode="json")
+    request = parse_request(text, inventory)
+    if request.parser_used == "fallback":
+        raise HTTPException(
+            status_code=422,
+            detail=[{
+                "code": "NLP_REQUEST_UNRESOLVED",
+                "path": "request_text",
+                "message": "Request could not be mapped safely to a supported simulation action",
+            }],
+        )
+    return request.model_dump(mode="json")
 
 
 @router.get("/actions")

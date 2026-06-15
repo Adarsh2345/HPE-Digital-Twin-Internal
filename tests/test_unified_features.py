@@ -169,6 +169,30 @@ def test_parser_safe_fallback_and_gemini_failure(monkeypatch):
     assert request.parser_used == "fallback"
 
 
+def test_ambiguous_add_rack_request_falls_back_safely(monkeypatch):
+    monkeypatch.setenv("ENABLE_LLM_PARSER", "false")
+    request = parse_request("ADD rack to server 1")
+    assert request.parser_used == "fallback"
+    with pytest.raises(ValueError, match="could not be resolved safely"):
+        SimulationEngine().run(graph(), request)
+
+
+def test_rule_parser_normalizes_spoken_numeric_ids():
+    request = parse_request("Move server 1 to router 2")
+    assert request.action == "move_server"
+    assert request.server_id == "server-1"
+    assert request.target_router_id == "router-2"
+
+
+def test_empty_target_identifiers_are_rejected():
+    with pytest.raises(Exception):
+        normalize_request({
+            "action": "add_compute",
+            "target_router_id": "",
+            "target_rack_id": "",
+        })
+
+
 def test_gemini_retry_policy_and_25_flash_configuration(monkeypatch):
     from google.genai import types
     from simulation.nlp_parser import _generation_config, _http_options

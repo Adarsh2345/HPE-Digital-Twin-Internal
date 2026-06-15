@@ -56,7 +56,7 @@ def parse_request(text: str, inventory_ids: Iterable[str] = ()) -> SimulationReq
 
 def rule_based_parse(text: str) -> SimulationRequest | None:
     raw = text.strip()
-    lower = raw.lower()
+    lower = _normalize_spoken_ids(raw.lower())
     ids = re.findall(r"\b(?:droplet|rack|server|router|spine|array-ctrl|obj-node|pdu)[-\w/]*\b", lower)
     quantity = int((re.search(r"\b(\d+)\s*(?:x\s*)?(?:servers?|dl360|dl380)", lower) or ["", "1"])[1])
     common = {"request_text": raw, "parser_used": "rule_based"}
@@ -87,6 +87,8 @@ def rule_based_parse(text: str) -> SimulationRequest | None:
     if "add" in lower:
         rack = next((value for value in ids if value.startswith(("rack", "droplet"))), "")
         router = next((value for value in ids if "router" in value), "")
+        if not rack or not router:
+            return None
         model = "HPE ProLiant DL380 Gen12" if "dl380" in lower else "HPE ProLiant DL360 Gen12"
         return normalize_request({
             "action": "add_compute", "target_rack_id": rack,
@@ -110,6 +112,14 @@ def rule_based_parse(text: str) -> SimulationRequest | None:
         values = _metric_values(lower)
         return normalize_request({"action": "inject_network", "source_node_id": ids[0], "target_node_id": ids[1], **values, **common})
     return None
+
+
+def _normalize_spoken_ids(text: str) -> str:
+    return re.sub(
+        r"\b(server|router|rack|droplet|pdu)\s+(\d+)\b",
+        lambda match: f"{match.group(1)}-{match.group(2)}",
+        text,
+    )
 
 
 def _metric_values(text: str) -> dict:
