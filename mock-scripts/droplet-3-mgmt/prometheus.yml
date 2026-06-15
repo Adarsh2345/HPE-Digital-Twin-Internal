@@ -1,0 +1,46 @@
+# prometheus.yml — Droplet-3 (droplet-3-mgmt)
+# Central Prometheus server. Scrapes mock exporters on all 4 droplets
+# every 15 seconds and stores metrics in its time-series database.
+# Your FastAPI app queries this server at http://10.10.3.17:9090.
+#
+# BEFORE USING: replace the three placeholder IPs below with your
+# actual DigitalOcean private VPC IPs from the DO console.
+# Droplet-3 uses localhost since Prometheus runs on that same machine.
+
+global:
+  scrape_interval:     15s
+  evaluation_interval: 15s
+
+scrape_configs:
+
+  - job_name: "droplet-1-tor1"
+    static_configs:
+      - targets: ["DROPLET_1_PRIVATE_IP:9200"]
+        labels:
+          droplet: "droplet-1-tor1"
+          rack:    "compute-rack-1"
+          region:  "blr1"
+
+  - job_name: "droplet-2-tor2"
+    static_configs:
+      - targets: ["DROPLET_2_PRIVATE_IP:9200"]
+        labels:
+          droplet: "droplet-2-tor2"
+          rack:    "compute-rack-2"
+          region:  "blr1"
+
+  - job_name: "droplet-3-mgmt"
+    static_configs:
+      - targets: ["localhost:9200"]
+        labels:
+          droplet: "droplet-3-mgmt"
+          rack:    "management"
+          region:  "blr1"
+
+  - job_name: "droplet-4-storage"
+    static_configs:
+      - targets: ["DROPLET_4_PRIVATE_IP:9200"]
+        labels:
+          droplet: "droplet-4-storage"
+          rack:    "storage"
+          region:  "blr1"
