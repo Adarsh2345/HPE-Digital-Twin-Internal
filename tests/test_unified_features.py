@@ -169,6 +169,24 @@ def test_parser_safe_fallback_and_gemini_failure(monkeypatch):
     assert request.parser_used == "fallback"
 
 
+def test_gemini_retry_policy_and_25_flash_configuration(monkeypatch):
+    from google.genai import types
+    from simulation.nlp_parser import _generation_config, _http_options
+
+    monkeypatch.setenv("GEMINI_TIMEOUT_SECONDS", "10")
+    monkeypatch.setenv("GEMINI_RETRY_ATTEMPTS", "9")
+    options = _http_options(types)
+    assert options.timeout == 10_000
+    assert options.retry_options.attempts == 3
+    assert 503 in options.retry_options.http_status_codes
+    assert 429 not in options.retry_options.http_status_codes
+
+    config = _generation_config(types, "gemini-2.5-flash")
+    assert config.thinking_config.thinking_budget == 0
+    assert config.response_mime_type == "application/json"
+    assert config.max_output_tokens == 512
+
+
 def test_audit_persists_and_approval_never_executes(tmp_path):
     request = normalize_request({"action": "blast_radius_query", "failed_device_id": "spine-router"})
     result = SimulationEngine().run(graph(), request)

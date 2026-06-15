@@ -43,6 +43,9 @@ ENABLE_LLM_PARSER = os.getenv("ENABLE_LLM_PARSER", "false").lower() == "true"
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 GEMINI_MODEL = os.getenv("GEMINI_MODEL", "")
 GEMINI_TIMEOUT_SECONDS = max(10.0, float(os.getenv("GEMINI_TIMEOUT_SECONDS", "10")))
+GEMINI_RETRY_ATTEMPTS = min(
+    3, max(1, int(os.getenv("GEMINI_RETRY_ATTEMPTS", "3")))
+)
 
 # Durable local simulation audit
 SIMULATION_DB_PATH = os.getenv("SIMULATION_DB_PATH", "/tmp/hpe_digital_twin_simulations.sqlite3")
