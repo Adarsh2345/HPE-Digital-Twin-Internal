@@ -66,3 +66,4 @@ pip-delete-this-directory.txt
 *.swo
 .DS_Store
 Thumbs.db
+models/*.pkl

@@ -13,6 +13,8 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from config.settings import API_HOST, API_PORT, DEBUG
 from config.constants import APP_NAME
+from api.routes import topology, telemetry, simulation, chaos, reports, analytics
+
 from core.orchestrator import orchestrator
 from api.routes import topology, telemetry, simulation, chaos, reports
 
@@ -61,7 +63,7 @@ app.include_router(telemetry.router)
 app.include_router(simulation.router)
 app.include_router(chaos.router)
 app.include_router(reports.router)
-
+app.include_router(analytics.router)
 
 @app.get("/", tags=["Root"])
 def root():

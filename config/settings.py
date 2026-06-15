@@ -88,3 +88,10 @@ IOPS_CHAOS_STD = 400.0
 
 POWER_CHAOS_MEAN = 320.0
 POWER_CHAOS_STD = 50.0
+
+# ML / Analytics pipeline
+ML_HISTORY_DAYS    = int(os.getenv("ML_HISTORY_DAYS", 30))
+ML_MODEL_DIR       = os.getenv("ML_MODEL_DIR", str(BASE_DIR / "models"))
+ML_K_MIN           = int(os.getenv("ML_K_MIN", 2))
+ML_K_MAX           = int(os.getenv("ML_K_MAX", 6))
+ML_RF_ESTIMATORS   = int(os.getenv("ML_RF_ESTIMATORS", 100))

@@ -129,6 +129,8 @@ def run_simulation(
         "projected_graph": sim_result["projected_graph"],
         "projections": projections,
         "tier_results": validation.get("tier_results", {}),
+        "scenario_results":   sim_result.get("scenario_results", []),    # ← ADD
+        "impact_predictions": sim_result.get("impact_predictions", {}),  # ← ADD
     }
 
 

@@ -36,7 +36,7 @@ class Orchestrator:
         self.processor = None
         self.state_builder = None
         self.neo4j_client = None
-        self.influx_client = None # 🟢 Allocated slot in memory map
+        self.influx_client = None  # 🟢 Allocated slot in memory map
 
         self._redis = None
         self._loop_task: Optional[asyncio.Task] = None
@@ -45,7 +45,7 @@ class Orchestrator:
 
     def bootstrap(self):
         logger.info("============================================================")
-        logger.info("   HPE DIGITAL TWIN — BOOTSTRAPPING ENGINE METADATA        ")
+        logger.info("    HPE DIGITAL TWIN — BOOTSTRAPPING ENGINE METADATA        ")
         logger.info("============================================================")
         
         from core.parser.yaml_parser import YAMLParser
@@ -60,7 +60,7 @@ class Orchestrator:
         self.scraper = PrometheusScraper()
         self.processor = TelemetryProcessor()
         self.state_builder = DerivedStateBuilder()
-        self.influx_client = InfluxClient() # 🟢 Instantiated cleanly here
+        self.influx_client = InfluxClient()  # 🟢 Instantiated cleanly here
 
         self.parser = YAMLParser(INFRASTRUCTURE_YAML)
         self.parser.load()
@@ -77,7 +77,15 @@ class Orchestrator:
         # Fire resilient fallback connection hooks
         self._connect_redis()
         self._connect_and_sync_neo4j()
-        self.influx_client.connect() # 🟢 Establish structural socket connection link
+        self.influx_client.connect()  # 🟢 Establish structural socket connection link
+
+        # 🟢 FIXED: Clean, multi-space indentation block ensuring accurate syntax parsing
+        try:
+            from core.analytics.model_registry import registry as _ml_registry
+            _ml_registry.bootstrap(days=30)
+            logger.info("✅ ML analytics pipeline bootstrapped successfully.")
+        except Exception as e:
+            logger.warning(f"ML analytics bootstrap skipped: {e}")
 
     def _connect_redis(self):
         try:
@@ -135,7 +143,7 @@ class Orchestrator:
         
         self._cache_to_redis(processed)
         self._sync_to_neo4j()
-        self._sync_to_influxdb() # 🟢 Auto-invoke pipeline stream syncs
+        self._sync_to_influxdb()  # 🟢 Auto-invoke pipeline stream syncs
 
     def _cache_to_redis(self, snapshot: dict):
         if self._redis is None:
@@ -163,7 +171,7 @@ class Orchestrator:
         try:
             from core.graph.graph_serializer import graph_to_dict
             derived_dict = graph_to_dict(self.derived_graph)
-            self.influx_client.write_snapshot_points(derived_dict) # 🟢 Write live points
+            self.influx_client.write_snapshot_points(derived_dict)  # 🟢 Write live points
         except Exception as e:
             logger.warning(f"InfluxDB time-series streaming skipped: {e}")
 
