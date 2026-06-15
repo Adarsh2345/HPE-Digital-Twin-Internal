@@ -55,3 +55,15 @@ def test_blast_radius_endpoint_404():
         assert exc.status_code == 404
     else:
         raise AssertionError("unknown blast-radius target was accepted")
+
+
+def test_ambiguous_nlp_request_returns_structured_422(monkeypatch):
+    monkeypatch.setenv("ENABLE_LLM_PARSER", "false")
+    orchestrator.derived_graph = graph()
+    try:
+        run_simulation({"request_text": "ADD rack to server 1"})
+    except HTTPException as exc:
+        assert exc.status_code == 422
+        assert exc.detail[0]["code"] == "NLP_REQUEST_UNRESOLVED"
+    else:
+        raise AssertionError("ambiguous NLP request was accepted")

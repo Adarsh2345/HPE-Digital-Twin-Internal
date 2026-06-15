@@ -24,16 +24,16 @@ class RequestBase(BaseModel):
 
 class MoveServer(RequestBase):
     action: Literal["move_server"]
-    server_id: str
-    target_router_id: str
-    target_rack_id: str | None = None
+    server_id: str = Field(min_length=1)
+    target_router_id: str = Field(min_length=1)
+    target_rack_id: str | None = Field(default=None, min_length=1)
 
 
 class AddCompute(RequestBase):
     action: Literal["add_compute"]
-    node_id: str | None = None
-    target_router_id: str
-    target_rack_id: str
+    node_id: str | None = Field(default=None, min_length=1)
+    target_router_id: str = Field(min_length=1)
+    target_rack_id: str = Field(min_length=1)
     model: str | None = None
     quantity: int = Field(default=1, ge=1, le=100)
     u_size: int = Field(default=1, ge=1)
@@ -44,12 +44,12 @@ class AddCompute(RequestBase):
 
 class RemoveNode(RequestBase):
     action: Literal["remove_node"]
-    node_id: str
+    node_id: str = Field(min_length=1)
 
 
 class InjectCompute(RequestBase):
     action: Literal["inject_compute"]
-    node_id: str
+    node_id: str = Field(min_length=1)
     cpu_pct: float | None = Field(default=None, ge=0, le=100)
     memory_pct: float | None = Field(default=None, ge=0, le=100)
     power_w: float | None = Field(default=None, ge=0)
@@ -58,8 +58,8 @@ class InjectCompute(RequestBase):
 
 class InjectNetwork(RequestBase):
     action: Literal["inject_network"]
-    source_node_id: str
-    target_node_id: str
+    source_node_id: str = Field(min_length=1)
+    target_node_id: str = Field(min_length=1)
     latency_ms: float | None = Field(default=None, ge=0)
     packet_loss_pct: float | None = Field(default=None, ge=0, le=100)
     bandwidth_mbps: float | None = Field(default=None, ge=0)
@@ -67,21 +67,21 @@ class InjectNetwork(RequestBase):
 
 class InjectStorage(RequestBase):
     action: Literal["inject_storage"]
-    node_id: str
+    node_id: str = Field(min_length=1)
     disk_iops: float | None = Field(default=None, ge=0)
     capacity_used_gb: float | None = Field(default=None, ge=0)
 
 
 class MigrateRack(RequestBase):
     action: Literal["migrate_rack"]
-    node_id: str
-    target_rack_id: str
-    target_router_id: str
+    node_id: str = Field(min_length=1)
+    target_rack_id: str = Field(min_length=1)
+    target_router_id: str = Field(min_length=1)
 
 
 class BlastRadiusQuery(RequestBase):
     action: Literal["blast_radius_query"]
-    failed_device_id: str
+    failed_device_id: str = Field(min_length=1)
 
 
 SimulationRequest = Annotated[

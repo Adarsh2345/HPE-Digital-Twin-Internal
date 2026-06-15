@@ -77,7 +77,18 @@ class SimulationEngine:
         action = request.action
         data = request.model_dump()
         if action == "blast_radius_query":
-            return {"success": True, "failed_device_id": request.failed_device_id}
+            failed_device_id = _resolve(graph, request.failed_device_id)
+            if failed_device_id == "__unresolved__":
+                return {
+                    "success": False,
+                    "error": "Natural-language request could not be resolved safely",
+                }
+            if failed_device_id not in graph:
+                return {
+                    "success": False,
+                    "error": f"Node '{request.failed_device_id}' not found",
+                }
+            return {"success": True, "failed_device_id": failed_device_id}
         if action == "move_server":
             return self.mutator.move_server(
                 graph, _resolve(graph, request.server_id),
