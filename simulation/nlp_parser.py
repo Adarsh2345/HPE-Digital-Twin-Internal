@@ -1,11 +1,46 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 import re
 from typing import Iterable
 
 from simulation.models import SimulationRequest, normalize_request
+
+logger = logging.getLogger(__name__)
+
+_TRANSIENT_STATUS_CODES = [408, 500, 502, 503, 504]
+_RESPONSE_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "action": {
+            "type": "string",
+            "enum": [
+                "move_server", "add_compute", "remove_node",
+                "inject_compute", "inject_network", "inject_storage",
+                "migrate_rack", "blast_radius_query",
+            ],
+        },
+        "server_id": {"type": "string"},
+        "target_router_id": {"type": "string"},
+        "target_rack_id": {"type": "string"},
+        "node_id": {"type": "string"},
+        "source_node_id": {"type": "string"},
+        "target_node_id": {"type": "string"},
+        "failed_device_id": {"type": "string"},
+        "quantity": {"type": "integer", "minimum": 1},
+        "cpu_pct": {"type": "number", "minimum": 0, "maximum": 100},
+        "memory_pct": {"type": "number", "minimum": 0, "maximum": 100},
+        "temp_c": {"type": "number"},
+        "power_w": {"type": "number", "minimum": 0},
+        "latency_ms": {"type": "number", "minimum": 0},
+        "packet_loss_pct": {"type": "number", "minimum": 0, "maximum": 100},
+        "disk_iops": {"type": "number", "minimum": 0},
+    },
+    "required": ["action"],
+    "additionalProperties": False,
+}
 
 
 def parse_request(text: str, inventory_ids: Iterable[str] = ()) -> SimulationRequest:
@@ -102,8 +137,10 @@ def _gemini_parse(text: str, inventory: set[str]) -> SimulationRequest | None:
     try:
         from google import genai
         from google.genai import types
-        timeout_ms = int(max(10.0, float(os.getenv("GEMINI_TIMEOUT_SECONDS", "10"))) * 1000)
-        client = genai.Client(api_key=key, http_options=types.HttpOptions(timeout=timeout_ms))
+        client = genai.Client(
+            api_key=key,
+            http_options=_http_options(types),
+        )
         response = client.models.generate_content(
             model=model,
             contents=(
@@ -114,7 +151,7 @@ def _gemini_parse(text: str, inventory: set[str]) -> SimulationRequest | None:
                 "target_router_id. Inventory IDs must be copied exactly. "
                 f"Inventory: {sorted(inventory)}. Request: {text}"
             ),
-            config=types.GenerateContentConfig(response_mime_type="application/json"),
+            config=_generation_config(types, model),
         )
         payload = json.loads(response.text)
         nested = payload.pop("parameters", payload.pop("params", {}))
@@ -127,8 +164,51 @@ def _gemini_parse(text: str, inventory: set[str]) -> SimulationRequest | None:
         if inventory and not supplied.issubset(inventory):
             return None
         return request
-    except Exception:
+    except Exception as exc:
+        status = getattr(exc, "code", None)
+        logger.warning(
+            "Gemini parser unavailable; using deterministic fallback "
+            "(model=%s, status=%s, error=%s)",
+            model,
+            status,
+            type(exc).__name__,
+        )
         return None
+
+
+def _http_options(types):
+    timeout_ms = int(
+        max(10.0, float(os.getenv("GEMINI_TIMEOUT_SECONDS", "10"))) * 1000
+    )
+    retry_attempts = min(
+        3, max(1, int(os.getenv("GEMINI_RETRY_ATTEMPTS", "3")))
+    )
+    return types.HttpOptions(
+        timeout=timeout_ms,
+        retry_options=types.HttpRetryOptions(
+            attempts=retry_attempts,
+            initial_delay=0.5,
+            max_delay=2.0,
+            exp_base=2,
+            jitter=0.5,
+            http_status_codes=_TRANSIENT_STATUS_CODES,
+        ),
+    )
+
+
+def _generation_config(types, model: str):
+    thinking_config = (
+        types.ThinkingConfig(thinking_budget=0)
+        if model.startswith("gemini-2.5-flash")
+        else None
+    )
+    return types.GenerateContentConfig(
+        response_mime_type="application/json",
+        response_json_schema=_RESPONSE_SCHEMA,
+        thinking_config=thinking_config,
+        temperature=0,
+        max_output_tokens=512,
+    )
 
 
 def _fallback(text: str) -> SimulationRequest:
