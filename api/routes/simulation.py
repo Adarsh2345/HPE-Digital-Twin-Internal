@@ -85,7 +85,170 @@ def run_simulation(
                     "params": {"node_id": "server-1", "target_droplet": "droplet-2-tor2", "target_router": "router-2"},
                     "projection_steps": 3
                 }
-            }
+            },
+            "Scenario 8: Spine Router Failure": {
+    "summary": "Spine Router Failure",
+    "description": "Simulates complete backbone router failure.",
+    "value": {
+        "action": "remove_node",
+        "params": {"node_id": "spine-router"},
+        "projection_steps": 3
+    }
+},
+
+"Scenario 9: Prometheus Overload": {
+    "summary": "Prometheus Monitoring Overload",
+    "description": "Simulates Prometheus CPU and memory saturation.",
+    "value": {
+        "action": "inject_compute",
+        "params": {
+            "node_id": "prometheus",
+            "cpu_percent": 95.0,
+            "memory_percent": 90.0,
+            "power_watts": 300.0
+        },
+        "projection_steps": 5
+    }
+},
+
+"Scenario 10: Grafana Resource Exhaustion": {
+    "summary": "Grafana Dashboard Failure",
+    "description": "Simulates dashboard service overload.",
+    "value": {
+        "action": "inject_compute",
+        "params": {
+            "node_id": "grafana",
+            "cpu_percent": 92.0,
+            "memory_percent": 88.0,
+            "power_watts": 280.0
+        },
+        "projection_steps": 5
+    }
+},
+
+"Scenario 11: Neo4j Storage Saturation": {
+    "summary": "Neo4j Storage Pressure",
+    "description": "Simulates graph database disk saturation.",
+    "value": {
+        "action": "inject_storage",
+        "params": {
+            "node_id": "neo4j",
+            "disk_iops": 4500
+        },
+        "projection_steps": 5
+    }
+},
+
+"Scenario 12: NetBox Service Overload": {
+    "summary": "NetBox Resource Exhaustion",
+    "description": "Simulates infrastructure inventory service overload.",
+    "value": {
+        "action": "inject_compute",
+        "params": {
+            "node_id": "netbox",
+            "cpu_percent": 90.0,
+            "memory_percent": 85.0,
+            "power_watts": 250.0
+        },
+        "projection_steps": 5
+    }
+},
+
+"Scenario 13: Storage Router Congestion": {
+    "summary": "Storage Fabric Congestion",
+    "description": "Simulates storage network latency and packet loss.",
+    "value": {
+        "action": "inject_network",
+        "params": {
+            "source_node": "storage-router",
+            "target_node": "array-ctrl-a",
+            "latency_ms": 180.0,
+            "packet_loss_percent": 5.0
+        },
+        "projection_steps": 3
+    }
+},
+
+"Scenario 14: Array Controller A Failure": {
+    "summary": "Primary Storage Controller Failure",
+    "description": "Simulates storage controller outage.",
+    "value": {
+        "action": "remove_node",
+        "params": {
+            "node_id": "array-ctrl-a"
+        },
+        "projection_steps": 3
+    }
+},
+
+"Scenario 15: Array Controller B Failure": {
+    "summary": "Secondary Storage Controller Failure",
+    "description": "Simulates secondary controller outage.",
+    "value": {
+        "action": "remove_node",
+        "params": {
+            "node_id": "array-ctrl-b"
+        },
+        "projection_steps": 3
+    }
+},
+
+"Scenario 16: MinIO Node Failure": {
+    "summary": "Object Store Failure",
+    "description": "Simulates MinIO object storage outage.",
+    "value": {
+        "action": "remove_node",
+        "params": {
+            "node_id": "minio"
+        },
+        "projection_steps": 3
+    }
+},
+
+"Scenario 17: Inter-Rack Network Congestion": {
+    "summary": "Cross Rack Congestion",
+    "description": "Simulates severe east-west traffic congestion.",
+    "value": {
+        "action": "inject_network",
+        "params": {
+            "source_node": "router-1",
+            "target_node": "router-2",
+            "latency_ms": 220.0,
+            "packet_loss_percent": 7.0
+        },
+        "projection_steps": 3
+    }
+},
+
+"Scenario 18: Server-3 CPU Saturation": {
+    "summary": "Compute Hotspot",
+    "description": "Simulates runaway compute workload.",
+    "value": {
+        "action": "inject_compute",
+        "params": {
+            "node_id": "server-3",
+            "cpu_percent": 98.0,
+            "memory_percent": 92.0,
+            "power_watts": 340.0
+        },
+        "projection_steps": 5
+    }
+},
+
+"Scenario 19: Server-4 Memory Exhaustion": {
+    "summary": "Memory Pressure Event",
+    "description": "Simulates application memory leak.",
+    "value": {
+        "action": "inject_compute",
+        "params": {
+            "node_id": "server-4",
+            "cpu_percent": 70.0,
+            "memory_percent": 96.0,
+            "power_watts": 260.0
+        },
+        "projection_steps": 5
+    }
+}
         }
     )
 ):
