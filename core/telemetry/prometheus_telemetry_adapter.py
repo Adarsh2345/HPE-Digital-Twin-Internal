@@ -12,17 +12,17 @@ import requests
 logger = logging.getLogger(__name__)
 
 NODE_METRIC_FIELDS = {
-    "cpu_percent": "node_telemetry_cpu_percent",
-    "memory_percent": "node_telemetry_memory_percent",
-    "disk_iops": "node_telemetry_disk_iops",
-    "power_watts": "node_telemetry_power_watts",
-    "temperature_celsius": "node_telemetry_temperature_celsius",
+    "cpu_percent": "cpu_percent",
+    "memory_percent": "memory_percent",
+    "disk_iops": "disk_iops",
+    "power_watts": "power_watts",
+    "temperature_celsius": "temperature_celsius",
 }
 
 EDGE_METRIC_FIELDS = {
-    "latency_ms": "edge_telemetry_latency_ms",
-    "packet_loss_percent": "edge_telemetry_packet_loss_percent",
-    "bandwidth_mbps": "edge_telemetry_bandwidth_mbps",
+    "latency_ms": "latency_ms",
+    "packet_loss_percent": "packet_loss_percent",
+    "bandwidth_mbps": "bandwidth_mbps",
 }
 
 
@@ -49,13 +49,32 @@ def fetch_snapshot(prometheus_url: str, graph_node_ids: list[str]) -> dict:
     composite graph node ids ("{droplet}/{name}"), returning a snapshot
     shaped as {"nodes": {graph_id: {...}}, "edges": {"src->tgt": {...}}}.
     """
-    bare_to_full = {node_id.rsplit("/", 1)[-1]: node_id for node_id in graph_node_ids}
+    # Bare device names (e.g. "node-exporter", "cadvisor") repeat across
+    # droplets, so they must be disambiguated by (droplet, name), not name
+    # alone — otherwise devices sharing a bare name collapse onto one
+    # composite id and the rest silently lose their telemetry.
+    by_droplet_and_name: dict[tuple[str, str], str] = {}
+    bare_to_full: dict[str, str] = {}
+    for node_id in graph_node_ids:
+        if "/" not in node_id:
+            bare_to_full[node_id] = node_id
+            continue
+        droplet, name = node_id.split("/", 1)
+        by_droplet_and_name[(droplet, name)] = node_id
+        bare_to_full.setdefault(name, node_id)
+
+    def resolve(name: str | None, droplet: str | None) -> str | None:
+        if not name:
+            return None
+        if droplet and (droplet, name) in by_droplet_and_name:
+            return by_droplet_and_name[(droplet, name)]
+        return bare_to_full.get(name)
 
     nodes_map: dict[str, dict] = {}
     for field, metric_name in NODE_METRIC_FIELDS.items():
         for item in _query(prometheus_url, metric_name):
             metric = item.get("metric", {})
-            full_id = bare_to_full.get(metric.get("id"))
+            full_id = resolve(metric.get("id"), metric.get("droplet"))
             if not full_id:
                 continue
             entry = nodes_map.setdefault(full_id, {
@@ -68,8 +87,9 @@ def fetch_snapshot(prometheus_url: str, graph_node_ids: list[str]) -> dict:
     for field, metric_name in EDGE_METRIC_FIELDS.items():
         for item in _query(prometheus_url, metric_name):
             metric = item.get("metric", {})
-            source = bare_to_full.get(metric.get("source"))
-            target = bare_to_full.get(metric.get("target"))
+            droplet = metric.get("droplet")
+            source = resolve(metric.get("source"), droplet)
+            target = resolve(metric.get("target"), droplet)
             if not source or not target:
                 continue
             edge_key = f"{source}->{target}"

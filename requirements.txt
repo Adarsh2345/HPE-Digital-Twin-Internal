@@ -8,3 +8,4 @@ requests>=2.31.0
 pytest>=8.0.0
 scikit-learn>=1.4.0
 numpy>=1.26.0
+prometheus-client>=0.20.0

@@ -41,7 +41,6 @@ INFLUXDB_ORG = os.getenv("INFLUXDB_ORG", "hpe-digital-twin-org")
 INFLUXDB_BUCKET = os.getenv("INFLUXDB_BUCKET", "telemetry_bucket")
 
 # Natural-language parser — Gemini
-ENABLE_LLM_PARSER = os.getenv("ENABLE_LLM_PARSER", "false").lower() == "true"
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
 GEMINI_TIMEOUT_SECONDS = max(10.0, float(os.getenv("GEMINI_TIMEOUT_SECONDS", "15")))
@@ -55,7 +54,7 @@ POWER_LIMIT_WATTS = float(os.getenv("POWER_LIMIT_WATTS", 1400.0))
 RACK_U_LIMIT = int(os.getenv("RACK_U_LIMIT", 42))
 CPU_CAPACITY_LIMIT = float(os.getenv("CPU_CAPACITY_LIMIT", 95.0))
 MEMORY_CAPACITY_LIMIT = float(os.getenv("MEMORY_CAPACITY_LIMIT", 95.0))
-STORAGE_IOPS_LIMIT = int(os.getenv("STORAGE_IOPS_LIMIT", 4000))
+STORAGE_IOPS_LIMIT = int(os.getenv("STORAGE_IOPS_LIMIT", 8000))
 NETWORK_LATENCY_SLA_MS = float(os.getenv("NETWORK_LATENCY_SLA_MS", 150.0))
 
 # Gaussian metrics - healthy state
