@@ -1,0 +1,44 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Distribution / packaging
+build/
+dist/
+eggs/
+*.egg-info/
+*.egg
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Virtual environments
+venv/
+env/
+.venv/
+
+# PyCharm
+.idea/
+
+# VS Code
+.vscode/
+
+# Terraform local state
+terraform.tfstate
+terraform.tfstate.backup
+
+# Python egg cache
+.python-eggs/
+
+# Log files
+.log
+
+# macOS
+.DS_Store
+
+# Secrets and config
+config/settings.py
+.env
+*.pem
