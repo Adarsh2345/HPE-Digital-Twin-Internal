@@ -7,16 +7,18 @@ from core.analytics.historical_analyzer import HistoricalPatternAnalyzer
 from core.analytics.scenario_generator  import ScenarioGenerator
 from core.analytics.behavior_model      import BehaviorModel
 from core.analytics.impact_analyzer     import ImpactAnalyzer
+from core.analytics.anomaly_detector    import AnomalyDetector
 
 logger = logging.getLogger(__name__)
 
 
 class ModelRegistry:
     def __init__(self):
-        self.analyzer       = HistoricalPatternAnalyzer()
-        self.scenario_gen   = ScenarioGenerator()
-        self.behavior_model = BehaviorModel()
-        self.impact_analyzer = ImpactAnalyzer(self.behavior_model)
+        self.analyzer         = HistoricalPatternAnalyzer()
+        self.scenario_gen     = ScenarioGenerator()
+        self.behavior_model   = BehaviorModel()
+        self.impact_analyzer  = ImpactAnalyzer(self.behavior_model)
+        self.anomaly_detector = AnomalyDetector()
         self._trained = False
 
     def bootstrap(self, days: int = 30):
@@ -39,6 +41,16 @@ class ModelRegistry:
             logger.info(f"  ✔ BehaviorModel: trained {len(summary)} nodes")
         except Exception as e:
             logger.warning(f"  BehaviorModel training failed: {e} — using linear fallback")
+
+        try:
+            if not self.anomaly_detector.load():
+                anomaly_days = min(days, 7)
+                ad_summary = self.anomaly_detector.train(days=anomaly_days)
+                logger.info(f"  ✔ AnomalyDetector trained: {ad_summary}")
+            else:
+                logger.info("  ✔ AnomalyDetector loaded from disk")
+        except Exception as e:
+            logger.warning(f"  AnomalyDetector bootstrap failed: {e} — detection disabled")
 
         self._trained = True
         logger.info("ModelRegistry: bootstrap complete")

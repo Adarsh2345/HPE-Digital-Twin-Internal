@@ -17,6 +17,7 @@ from config.settings import (
     TELEMETRY_INTERVAL_SECONDS,
     REDIS_HOST, REDIS_PORT, REDIS_DB,
     NEO4J_URI, NEO4J_USER, NEO4J_PASSWORD,
+    PROMETHEUS_URL,
 )
 from config.constants import REDIS_KEYS
 from integrations.influxdb.influx_client import InfluxClient
@@ -42,6 +43,8 @@ class Orchestrator:
         self._loop_task: Optional[asyncio.Task] = None
         self._tick_count = 0
         self._last_tick: float = 0.0
+        self._last_alert_cycle: dict = {}
+        self.alert_pipeline = None
 
     def bootstrap(self):
         logger.info("============================================================")
@@ -57,10 +60,13 @@ class Orchestrator:
         from core.telemetry.chaos_engine import ChaosEngine
 
         self.chaos_engine = ChaosEngine()
-        self.scraper = PrometheusScraper()
+        self.scraper = PrometheusScraper(prometheus_url=PROMETHEUS_URL)
         self.processor = TelemetryProcessor()
         self.state_builder = DerivedStateBuilder()
-        self.influx_client = InfluxClient()  # 🟢 Instantiated cleanly here
+        self.influx_client = InfluxClient()
+
+        from core.analytics.alert_pipeline import AlertPipeline
+        self.alert_pipeline = AlertPipeline()
 
         self.parser = YAMLParser(INFRASTRUCTURE_YAML)
         self.parser.load()
@@ -143,7 +149,13 @@ class Orchestrator:
         
         self._cache_to_redis(processed)
         self._sync_to_neo4j()
-        self._sync_to_influxdb()  # 🟢 Auto-invoke pipeline stream syncs
+        self._sync_to_influxdb()
+
+        # Run alert pipeline (threshold + anomaly detection + remediation)
+        try:
+            self._last_alert_cycle = self.alert_pipeline.run(self.derived_graph)
+        except Exception as e:
+            logger.warning(f"Alert pipeline error: {e}")
 
     def _cache_to_redis(self, snapshot: dict):
         if self._redis is None:

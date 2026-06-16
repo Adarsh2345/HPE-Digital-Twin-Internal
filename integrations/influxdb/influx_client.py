@@ -85,6 +85,71 @@ class InfluxClient:
             except Exception as e:
                 logger.error(f"Failed to batch write points to InfluxDB: {e}")
 
+    def write_prometheus_metrics(
+        self,
+        instance_metrics: dict,
+        timestamp: datetime.datetime = None,
+        measurement: str = "node_telemetry_real",
+    ):
+        """
+        Write pre-aggregated per-instance metrics fetched from real Prometheus.
+
+        instance_metrics format:
+            {
+                "168.144.91.25:9100": {
+                    "cpu_percent": 34.2,
+                    "memory_percent": 61.0,
+                    "disk_iops": 420,
+                    "network_rx_mbps": 12.3,
+                    "network_tx_mbps": 5.1,
+                    "temperature_celsius": 47.0,
+                    "job": "node"
+                },
+                ...
+            }
+        """
+        if not self.write_api or not instance_metrics:
+            return
+
+        ts = timestamp or datetime.datetime.now(datetime.timezone.utc)
+        points = []
+
+        for instance, fields in instance_metrics.items():
+            point = (
+                Point(measurement)
+                .tag("instance", instance)
+                .tag("job", fields.get("job", ""))
+                .tag("source", "prometheus_real")
+                .time(ts, WritePrecision.NS)
+            )
+            numeric_fields = {
+                "cpu_percent", "memory_percent", "network_rx_mbps",
+                "network_tx_mbps", "temperature_celsius",
+                "load1", "load5", "load15", "disk_used_percent",
+            }
+            has_field = False
+            for fname, fval in fields.items():
+                if fname in ("job",):
+                    continue
+                try:
+                    if fname in numeric_fields:
+                        point = point.field(fname, float(fval))
+                        has_field = True
+                    elif fname == "disk_iops":
+                        point = point.field("disk_iops", int(fval))
+                        has_field = True
+                except (TypeError, ValueError):
+                    pass
+            if has_field:
+                points.append(point)
+
+        if points:
+            try:
+                self.write_api.write(bucket=self.bucket, org=self.org, record=points)
+                logger.info(f"✅ wrote {len(points)} real Prometheus points → {measurement}")
+            except Exception as exc:
+                logger.error(f"write_prometheus_metrics failed: {exc}")
+
     def close(self):
         if self.client:
             self.client.close()

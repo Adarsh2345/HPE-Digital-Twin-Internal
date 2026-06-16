@@ -9,6 +9,7 @@ from core.orchestrator import orchestrator
 from core.simulation.simulator import Simulator
 from core.validation.validator_engine import ValidatorEngine
 from core.recommendations.recommendation_engine import RecommendationEngine
+from core.llm.gemini_client import GeminiClient
 from core.graph.graph_serializer import dict_to_graph
 
 router = APIRouter(prefix="/api/v1/simulate", tags=["Simulation"])
@@ -16,6 +17,7 @@ router = APIRouter(prefix="/api/v1/simulate", tags=["Simulation"])
 _simulator = Simulator()
 _validator = ValidatorEngine()
 _recommender = RecommendationEngine()
+_llm = GeminiClient()
 
 
 @router.post("")
@@ -123,8 +125,20 @@ def run_simulation(
         projections=projections,
     )
 
+    # If rejected, enrich with an LLM explanation (same path as automatic remediation)
+    llm_explanation = ""
+    if not report["allowed"]:
+        llm_explanation = _llm.get_simulation_failure_recommendation(
+            action          = req.action,
+            params          = req.params,
+            failure_reasons = report["reasons"],
+            rule_suggestions= report["recommendations"],
+            impact_preview  = sim_result.get("impact_predictions", {}),
+        )
+
     return {
         **report,
+        "llm_explanation": llm_explanation,
         "clone_id": sim_result["clone_id"],
         "projected_graph": sim_result["projected_graph"],
         "projections": projections,

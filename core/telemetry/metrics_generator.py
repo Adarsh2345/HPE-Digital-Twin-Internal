@@ -94,6 +94,18 @@ class MetricsGenerator:
             5 if not self.chaos_mode else 15,
             lo=2, hi=95
         ), 2)
+        # Routers/switches have no disk and draw far less power than compute
+        # servers — _compute_metrics()'s baseline (disk_iops~800, power~180W)
+        # doesn't apply here, and training the IF on that fabricated profile
+        # makes every real router reading look like an outlier.
+        base["disk_iops"] = 0
+        base["power_watts"] = round(_gaussian_clamp(
+            80 if not self.chaos_mode else 150, 10,
+            lo=40.0, hi=200.0
+        ), 1)
+        base["temperature_celsius"] = round(_gaussian_clamp(
+            37 if not self.chaos_mode else 60, 3, lo=25, hi=90
+        ), 1)
         base["routing_table_entries"] = random.randint(50, 500)
         base["bgp_sessions_active"] = random.randint(1, 8)
         return base

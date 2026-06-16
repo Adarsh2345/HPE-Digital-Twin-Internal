@@ -21,8 +21,8 @@ NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD", "password")
 NETBOX_URL = os.getenv("NETBOX_URL", "http://localhost:8080")
 NETBOX_TOKEN = os.getenv("NETBOX_TOKEN", "demo-token-12345")
 
-# Prometheus
-PROMETHEUS_URL = os.getenv("PROMETHEUS_URL", "http://localhost:9090")
+# Prometheus — real endpoint; override via env var PROMETHEUS_URL if needed
+PROMETHEUS_URL = os.getenv("PROMETHEUS_URL", "http://168.144.91.25:9090")
 
 # Telemetry Loop
 TELEMETRY_INTERVAL_SECONDS = int(os.getenv("TELEMETRY_INTERVAL", 12))

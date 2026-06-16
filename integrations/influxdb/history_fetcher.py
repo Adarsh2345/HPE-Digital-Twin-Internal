@@ -72,6 +72,47 @@ class HistoryFetcher:
                 return result
         return self._synthetic_node_series(days)
 
+    def fetch_node_series_raw(self, days: int = 7) -> dict[str, dict]:
+        """
+        Raw (non-aggregated) node telemetry points, used by the Isolation
+        Forest. detect() scores a single live snapshot, so the IF's training
+        variance must reflect point-level noise — the 1h-mean smoothing in
+        fetch_node_series() crushes std by ~17x, making any normal live
+        reading look like a many-sigma outlier.
+        """
+        if self._client:
+            result = self._influx_node_series_raw(days)
+            if result:
+                return result
+        return self._synthetic_node_series(days)
+
+    def _influx_node_series_raw(self, days: int) -> dict:
+        q_api = self._client.query_api()
+        flux = f"""
+        from(bucket: "{INFLUXDB_BUCKET}")
+          |> range(start: -{days}d)
+          |> filter(fn: (r) => r._measurement == "node_telemetry")
+          |> pivot(rowKey:["_time","id"], columnKey:["_field"], valueColumn:"_value")
+        """
+        result: dict[str, dict] = {}
+        try:
+            for table in q_api.query(flux):
+                for rec in table.records:
+                    nid = rec.values.get("id", "")
+                    if nid not in result:
+                        result[nid] = {"timestamps": []}
+                    ts = rec.get_time()
+                    result[nid]["timestamps"].append(ts.timestamp() if ts else 0)
+                    for m in ["cpu_percent","memory_percent","disk_iops",
+                              "power_watts","temperature_celsius"]:
+                        v = rec.values.get(m)
+                        if v is not None:
+                            result[nid].setdefault(m, []).append(float(v))
+        except Exception as e:
+            logger.warning(f"InfluxDB raw node query failed: {e}")
+            return {}
+        return result
+
     def _influx_node_series(self, days: int) -> dict:
         q_api = self._client.query_api()
         # 🟢 FIXED: Added aggregateWindow() downsampling directly on the InfluxDB side.
@@ -215,6 +256,77 @@ class HistoryFetcher:
                 "bandwidth_mbps":       list(bw),
             }
         return result
+
+    # ------------------------------------------------------------------ #
+    # Anomaly training data (for RF Classifier)                         #
+    # ------------------------------------------------------------------ #
+    def fetch_anomaly_training_data(self, days: int = 7) -> dict:
+        """
+        Fetch labeled rows from anomaly_training_data measurement.
+        Returns {"X": [[f1,f2,...], ...], "y": ["cpu_spike", "none", ...]}
+        Used exclusively by AnomalyDetector._train_clf().
+        """
+        FEATURE_COLS = [
+            "cpu_percent", "memory_percent", "disk_iops",
+            "temperature_celsius", "power_watts",
+        ]
+        if self._client:
+            result = self._influx_anomaly_training(days, FEATURE_COLS)
+            if result and result.get("X"):
+                return result
+        return self._synthetic_anomaly_training(FEATURE_COLS)
+
+    def _influx_anomaly_training(self, days: int, feature_cols: list) -> dict:
+        q_api = self._client.query_api()
+        flux = f"""
+        from(bucket: "{INFLUXDB_BUCKET}")
+          |> range(start: -{days}d)
+          |> filter(fn: (r) => r._measurement == "anomaly_training_data")
+          |> aggregateWindow(every: 5m, fn: mean, createEmpty: false)
+          |> pivot(rowKey:["_time","node_id","anomaly_type"], columnKey:["_field"], valueColumn:"_value")
+        """
+        X, y = [], []
+        try:
+            for table in q_api.query(flux):
+                for rec in table.records:
+                    anomaly_type = rec.values.get("anomaly_type", "none")
+                    row = []
+                    for col in feature_cols:
+                        v = rec.values.get(col)
+                        row.append(float(v) if v is not None else 0.0)
+                    X.append(row)
+                    y.append(anomaly_type)
+        except Exception as e:
+            logger.warning(f"anomaly_training_data query failed: {e}")
+            return {}
+        logger.info(f"HistoryFetcher: fetched {len(X)} labeled anomaly rows from InfluxDB")
+        return {"X": X, "y": y}
+
+    def _synthetic_anomaly_training(self, feature_cols: list) -> dict:
+        """Fallback: generate synthetic labeled data when InfluxDB unavailable."""
+        import random
+        rng = np.random.default_rng(seed=77)
+        X, y = [], []
+        anomaly_types = ["none", "cpu_spike", "memory_pressure",
+                         "disk_saturation", "thermal_anomaly",
+                         "network_saturation", "cascading_failure"]
+        # Column order matches FEATURE_COLS: cpu, memory, disk_iops, temperature, power
+        profiles = {
+            "none":               [33, 45, 800,  45, 180],
+            "cpu_spike":          [92, 65, 900,  75, 310],
+            "memory_pressure":    [45, 93, 1200, 58, 220],
+            "disk_saturation":    [60, 70, 4800, 62, 260],
+            "thermal_anomaly":    [55, 60, 600,  88, 350],
+            "network_saturation": [70, 55, 500,  58, 240],
+            "cascading_failure":  [88, 85, 4000, 80, 380],
+        }
+        for _ in range(500):
+            atype = rng.choice(anomaly_types)
+            base  = profiles[atype]
+            row   = [max(0.0, float(v) + rng.normal(0, abs(v) * 0.1)) for v in base]
+            X.append(row)
+            y.append(atype)
+        return {"X": X, "y": y}
 
     # ------------------------------------------------------------------ #
     # Flat matrix for KMeans                                             #

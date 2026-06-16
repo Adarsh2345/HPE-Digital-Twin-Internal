@@ -16,7 +16,6 @@ from config.constants import APP_NAME
 from api.routes import topology, telemetry, simulation, chaos, reports, analytics
 
 from core.orchestrator import orchestrator
-from api.routes import topology, telemetry, simulation, chaos, reports
 
 logging.basicConfig(
     level=logging.DEBUG if DEBUG else logging.INFO,
@@ -49,6 +48,7 @@ app = FastAPI(
         "what-if simulation with RCU isolation, and 4-tier constraint validation."
     ),
     lifespan=lifespan,
+    servers=[{"url": "http://localhost:5000", "description": "Local dev server"}],
 )
 
 app.add_middleware(
