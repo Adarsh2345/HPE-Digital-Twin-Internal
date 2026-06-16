@@ -1,0 +1,324 @@
+{
+  "category": "all",
+  "results": [
+    {
+      "id": "move_server_1_to_tor2",
+      "label": "Move server-1 from ToR1 to ToR2",
+      "success": true,
+      "allowed": true,
+      "violations": [],
+      "warnings": [],
+      "recommendations": [],
+      "future_violations": [],
+      "projections": 3,
+      "clone_id": "dec1abad"
+    },
+    {
+      "id": "add_compute_server5",
+      "label": "Add new compute blade server-5 under ToR1",
+      "success": true,
+      "allowed": true,
+      "violations": [],
+      "warnings": [],
+      "recommendations": [],
+      "future_violations": [],
+      "projections": 3,
+      "clone_id": "60d37b96"
+    },
+    {
+      "id": "add_compute_server6_tor2",
+      "label": "Add new compute blade server-6 under ToR2",
+      "success": true,
+      "allowed": true,
+      "violations": [],
+      "warnings": [],
+      "recommendations": [],
+      "future_violations": [],
+      "projections": 3,
+      "clone_id": "f9f5daaf"
+    },
+    {
+      "id": "remove_server4",
+      "label": "Decommission server-4",
+      "success": true,
+      "allowed": true,
+      "violations": [],
+      "warnings": [],
+      "recommendations": [],
+      "future_violations": [],
+      "projections": 3,
+      "clone_id": "e8711732"
+    },
+    {
+      "id": "migrate_rack_server2",
+      "label": "Rack migration: server-2 to droplet-2-tor2",
+      "success": true,
+      "allowed": true,
+      "violations": [],
+      "warnings": [],
+      "recommendations": [],
+      "future_violations": [],
+      "projections": 3,
+      "clone_id": "83bfc6a5"
+    },
+    {
+      "id": "inject_cpu_warning",
+      "label": "CPU warning-level stress on server-1 (60%)",
+      "success": true,
+      "allowed": true,
+      "violations": [],
+      "warnings": [],
+      "recommendations": [],
+      "future_violations": [],
+      "projections": 3,
+      "clone_id": "9f848731"
+    },
+    {
+      "id": "inject_cpu_critical",
+      "label": "CPU critical breach on server-1 (96%)",
+      "success": true,
+      "allowed": false,
+      "violations": [
+        "Compute Overload on server-1: CPU=100.0% MEM=69.6% (Limit: 95.0%)."
+      ],
+      "warnings": [],
+      "recommendations": [
+        "Scale server-1 workload horizontally \u2014 add a sibling compute node under the same ToR switch and redistribute processes."
+      ],
+      "future_violations": [
+        "Projected Step 1: server-1 CPU=100.0% MEM=61.8%.",
+        "Projected Step 2: server-1 CPU=100.0% MEM=63.6%.",
+        "Projected Step 3: server-1 CPU=100.0% MEM=65.6%.",
+        "Projected Step 4: server-1 CPU=100.0% MEM=67.5%.",
+        "Projected Step 5: server-1 CPU=100.0% MEM=69.6%."
+      ],
+      "projections": 5,
+      "clone_id": "fcbb5b48"
+    },
+    {
+      "id": "inject_memory_critical",
+      "label": "Memory critical breach on server-2 (96%)",
+      "success": true,
+      "allowed": false,
+      "violations": [
+        "Compute Overload on server-2: CPU=57.4% MEM=100.0% (Limit: 95.0%)."
+      ],
+      "warnings": [],
+      "recommendations": [
+        "Scale server-2 workload horizontally \u2014 add a sibling compute node under the same ToR switch and redistribute processes."
+      ],
+      "future_violations": [
+        "Projected Step 1: server-2 CPU=47.2% MEM=98.9%.",
+        "Projected Step 2: server-2 CPU=49.6% MEM=100.0%.",
+        "Projected Step 3: server-2 CPU=52.1% MEM=100.0%.",
+        "Projected Step 4: server-2 CPU=54.7% MEM=100.0%.",
+        "Projected Step 5: server-2 CPU=57.4% MEM=100.0%."
+      ],
+      "projections": 5,
+      "clone_id": "3a74cd20"
+    },
+    {
+      "id": "inject_power_breach",
+      "label": "Power envelope breach \u2014 high-draw workload on server-3 (420W)",
+      "success": true,
+      "allowed": false,
+      "violations": [
+        "Compute Overload on server-3: CPU=98.4% MEM=76.5% (Limit: 95.0%)."
+      ],
+      "warnings": [],
+      "recommendations": [
+        "Scale server-3 workload horizontally \u2014 add a sibling compute node under the same ToR switch and redistribute processes."
+      ],
+      "future_violations": [
+        "Projected Step 3: server-3 CPU=98.4% MEM=76.5%."
+      ],
+      "projections": 3,
+      "clone_id": "9f7619e0"
+    },
+    {
+      "id": "inject_compute_future_breach",
+      "label": "Near-limit CPU that breaches on projected step 3 (88%)",
+      "success": true,
+      "allowed": false,
+      "violations": [
+        "Compute Overload on server-1: CPU=100.0% MEM=58.0% (Limit: 95.0%)."
+      ],
+      "warnings": [],
+      "recommendations": [
+        "Scale server-1 workload horizontally \u2014 add a sibling compute node under the same ToR switch and redistribute processes."
+      ],
+      "future_violations": [
+        "Projected Step 2: server-1 CPU=97.0% MEM=53.0%.",
+        "Projected Step 3: server-1 CPU=100.0% MEM=54.6%.",
+        "Projected Step 4: server-1 CPU=100.0% MEM=56.3%.",
+        "Projected Step 5: server-1 CPU=100.0% MEM=58.0%."
+      ],
+      "projections": 5,
+      "clone_id": "1dfd5725"
+    },
+    {
+      "id": "inject_latency_warning",
+      "label": "Network latency warning on spine->router-1 (120ms)",
+      "success": true,
+      "allowed": false,
+      "violations": [
+        "Network SLA Breach on spine-router\u2192router-1: Latency=151.2ms (SLA Limit: 150.0ms)."
+      ],
+      "warnings": [],
+      "recommendations": [
+        "Inspect FRRouting BGP path on spine-router\u2192router-1 \u2014 consider enabling ECMP load-balancing or switching to an alternate spine route."
+      ],
+      "future_violations": [
+        "Projected Step 3: spine-router->router-1 latency=151.2ms."
+      ],
+      "projections": 3,
+      "clone_id": "e3713976"
+    },
+    {
+      "id": "inject_latency_sla_breach",
+      "label": "Network SLA breach on spine->router-1 (160ms)",
+      "success": true,
+      "allowed": false,
+      "violations": [
+        "Network SLA Breach on spine-router\u2192router-1: Latency=201.6ms (SLA Limit: 150.0ms)."
+      ],
+      "warnings": [],
+      "recommendations": [
+        "Inspect FRRouting BGP path on spine-router\u2192router-1 \u2014 consider enabling ECMP load-balancing or switching to an alternate spine route."
+      ],
+      "future_violations": [
+        "Projected Step 1: spine-router->router-1 latency=172.8ms.",
+        "Projected Step 2: spine-router->router-1 latency=186.6ms.",
+        "Projected Step 3: spine-router->router-1 latency=201.6ms."
+      ],
+      "projections": 3,
+      "clone_id": "d1523f2f"
+    },
+    {
+      "id": "inject_packet_loss_breach",
+      "label": "Packet loss breach on router-2->server-3 (7%)",
+      "success": true,
+      "allowed": false,
+      "violations": [
+        "Packet Loss Breach on router-2\u2192server-3: 11.20% loss."
+      ],
+      "warnings": [],
+      "recommendations": [
+        "Check physical / virtual NIC on router-2\u2192server-3 \u2014 packet loss indicates a flapping link or MTU mismatch in the Docker bridge network."
+      ],
+      "future_violations": [],
+      "projections": 3,
+      "clone_id": "f2fc40ce"
+    },
+    {
+      "id": "inject_combined_network_failure",
+      "label": "Combined latency + packet loss (200ms, 8%) on spine->router-2",
+      "success": true,
+      "allowed": false,
+      "violations": [
+        "Network SLA Breach on spine-router\u2192router-2: Latency=293.9ms (SLA Limit: 150.0ms).",
+        "Packet Loss Breach on spine-router\u2192router-2: 16.00% loss."
+      ],
+      "warnings": [],
+      "recommendations": [
+        "Inspect FRRouting BGP path on spine-router\u2192router-2 \u2014 consider enabling ECMP load-balancing or switching to an alternate spine route.",
+        "Check physical / virtual NIC on spine-router\u2192router-2 \u2014 packet loss indicates a flapping link or MTU mismatch in the Docker bridge network."
+      ],
+      "future_violations": [
+        "Projected Step 1: spine-router->router-2 latency=216.0ms.",
+        "Projected Step 2: spine-router->router-2 latency=233.3ms.",
+        "Projected Step 3: spine-router->router-2 latency=251.9ms.",
+        "Projected Step 4: spine-router->router-2 latency=272.1ms.",
+        "Projected Step 5: spine-router->router-2 latency=293.9ms."
+      ],
+      "projections": 5,
+      "clone_id": "09b56b0f"
+    },
+    {
+      "id": "inject_iops_warning",
+      "label": "IOPS warning on server-1 (3100 IOPS)",
+      "success": true,
+      "allowed": false,
+      "violations": [
+        "Storage IOPS Breach on server-1: 4650 IOPS (Limit: 4000 IOPS)."
+      ],
+      "warnings": [],
+      "recommendations": [
+        "Attach an additional NVMe volume to server-1 or enable read caching (Redis) to reduce raw disk IOPS pressure."
+      ],
+      "future_violations": [
+        "Projected Step 3: server-1 IOPS=4030.",
+        "Projected Step 4: server-1 IOPS=4340.",
+        "Projected Step 5: server-1 IOPS=4650."
+      ],
+      "projections": 5,
+      "clone_id": "ec64c860"
+    },
+    {
+      "id": "inject_iops_breach",
+      "label": "IOPS hard breach on server-2 (4050 IOPS)",
+      "success": true,
+      "allowed": false,
+      "violations": [
+        "Storage IOPS Breach on server-2: 6075 IOPS (Limit: 4000 IOPS)."
+      ],
+      "warnings": [],
+      "recommendations": [
+        "Attach an additional NVMe volume to server-2 or enable read caching (Redis) to reduce raw disk IOPS pressure."
+      ],
+      "future_violations": [
+        "Projected Step 1: server-2 IOPS=4455.",
+        "Projected Step 2: server-2 IOPS=4860.",
+        "Projected Step 3: server-2 IOPS=5265.",
+        "Projected Step 4: server-2 IOPS=5670.",
+        "Projected Step 5: server-2 IOPS=6075."
+      ],
+      "projections": 5,
+      "clone_id": "409c2309"
+    },
+    {
+      "id": "inject_iops_neo4j",
+      "label": "IOPS near-limit on neo4j (3800 IOPS) \u2014 full-scan workload",
+      "success": true,
+      "allowed": false,
+      "violations": [
+        "Storage IOPS Breach on neo4j: 5700 IOPS (Limit: 4000 IOPS)."
+      ],
+      "warnings": [],
+      "recommendations": [
+        "Attach an additional NVMe volume to neo4j or enable read caching (Redis) to reduce raw disk IOPS pressure."
+      ],
+      "future_violations": [
+        "Projected Step 1: neo4j IOPS=4180.",
+        "Projected Step 2: neo4j IOPS=4560.",
+        "Projected Step 3: neo4j IOPS=4940.",
+        "Projected Step 4: neo4j IOPS=5320.",
+        "Projected Step 5: neo4j IOPS=5700."
+      ],
+      "projections": 5,
+      "clone_id": "46f78c20"
+    },
+    {
+      "id": "inject_iops_future_breach",
+      "label": "IOPS that projects past limit at step 2 (3500 IOPS base)",
+      "success": true,
+      "allowed": false,
+      "violations": [
+        "Storage IOPS Breach on server-3: 5250 IOPS (Limit: 4000 IOPS)."
+      ],
+      "warnings": [],
+      "recommendations": [
+        "Attach an additional NVMe volume to server-3 or enable read caching (Redis) to reduce raw disk IOPS pressure."
+      ],
+      "future_violations": [
+        "Projected Step 2: server-3 IOPS=4200.",
+        "Projected Step 3: server-3 IOPS=4550.",
+        "Projected Step 4: server-3 IOPS=4900.",
+        "Projected Step 5: server-3 IOPS=5250."
+      ],
+      "projections": 5,
+      "clone_id": "11ed0c8a"
+    }
+  ],
+  "elapsed_s": 0.026420116424560547
+}
