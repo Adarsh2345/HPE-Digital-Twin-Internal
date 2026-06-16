@@ -28,7 +28,7 @@ def run_simulation(
                 "description": "Clips old edge, maps new edge, and updates subnet assignments in memory.",
                 "value": {
                     "action": "move_server",
-                    "params": {"server_id": "server-1", "target_router": "router-2"},
+                    "params": {"server_id": "droplet-1-tor1/server-1", "target_router_id": "droplet-2-tor2/router-2"},
                     "projection_steps": 3
                 }
             },
@@ -37,7 +37,7 @@ def run_simulation(
                 "description": "Checks rack vertical U-space and power headroom capacity bounds on target subnet.",
                 "value": {
                     "action": "add_compute",
-                    "params": {"node_id": "server-5", "router_id": "router-1", "ip": "10.10.1.13"},
+                    "params": {"node_id": "server-5", "target_router_id": "droplet-1-tor1/router-1", "target_rack_id": "droplet-1-tor1", "ip": "10.10.1.13"},
                     "projection_steps": 3
                 }
             },
@@ -46,7 +46,7 @@ def run_simulation(
                 "description": "Removes a node from topology to validate remaining capacity balances.",
                 "value": {
                     "action": "remove_node",
-                    "params": {"node_id": "server-4"},
+                    "params": {"node_id": "droplet-2-tor2/server-4"},
                     "projection_steps": 3
                 }
             },
@@ -55,7 +55,7 @@ def run_simulation(
                 "description": "Simulates heavy processing batch jobs spikes or runaway hypervisor processes.",
                 "value": {
                     "action": "inject_compute",
-                    "params": {"node_id": "server-1", "cpu_percent": 92.0, "memory_percent": 88.0, "power_watts": 310.0},
+                    "params": {"node_id": "droplet-1-tor1/server-1", "cpu_percent": 92.0, "memory_percent": 88.0, "power_watts": 310.0},
                     "projection_steps": 5
                 }
             },
@@ -64,7 +64,7 @@ def run_simulation(
                 "description": "Injects severe latency and packet loss to force routing path degradation warnings.",
                 "value": {
                     "action": "inject_network",
-                    "params": {"source_node": "spine-router", "target_node": "router-1", "latency_ms": 160.0, "packet_loss_percent": 6.5},
+                    "params": {"source_node_id": "droplet-3-mgmt/spine-router", "target_node_id": "droplet-1-tor1/router-1", "latency_ms": 160.0, "packet_loss_percent": 6.5},
                     "projection_steps": 3
                 }
             },
@@ -73,7 +73,7 @@ def run_simulation(
                 "description": "Simulates storage network path congestion or heavy full-table indexing scans.",
                 "value": {
                     "action": "inject_storage",
-                    "params": {"node_id": "server-2", "disk_iops": 3900},
+                    "params": {"node_id": "droplet-1-tor1/server-2", "disk_iops": 3900},
                     "projection_steps": 5
                 }
             },
@@ -82,7 +82,7 @@ def run_simulation(
                 "description": "Atomically shifts container droplet allocation structures and rewires switch links.",
                 "value": {
                     "action": "migrate_rack",
-                    "params": {"node_id": "server-1", "target_droplet": "droplet-2-tor2", "target_router": "router-2"},
+                    "params": {"node_id": "droplet-1-tor1/server-1", "target_rack_id": "droplet-2-tor2", "target_router_id": "droplet-2-tor2/router-2"},
                     "projection_steps": 3
                 }
             }
@@ -98,11 +98,26 @@ def run_simulation(
     except RuntimeError as e:
         raise HTTPException(status_code=503, detail=str(e))
 
+    # ─── REMAP INCOMING SCHEMA KEYS FOR MUTATOR COMPATIBILITY ───
+    simulation_params = dict(req.params)
+    
+    if "target_router_id" in simulation_params:
+        simulation_params["target_router"] = simulation_params["target_router_id"]
+        simulation_params["router_id"] = simulation_params["target_router_id"]
+    if "target_rack_id" in simulation_params:
+        simulation_params["target_droplet"] = simulation_params["target_rack_id"]
+    if "server_id" in simulation_params:
+        simulation_params["server"] = simulation_params["server_id"]
+    if "source_node_id" in simulation_params:
+        simulation_params["source_node"] = simulation_params["source_node_id"]
+    if "target_node_id" in simulation_params:
+        simulation_params["target_node"] = simulation_params["target_node_id"]
+
     # Phase 3: RCU clone + mutation/injection + projection
     sim_result = _simulator.run(
         base_graph,
         action=req.action,
-        params=req.params,
+        params=simulation_params,
         projection_steps=req.projection_steps,
     )
 
@@ -129,8 +144,8 @@ def run_simulation(
         "projected_graph": sim_result["projected_graph"],
         "projections": projections,
         "tier_results": validation.get("tier_results", {}),
-        "scenario_results":   sim_result.get("scenario_results", []),    # ← ADD
-        "impact_predictions": sim_result.get("impact_predictions", {}),  # ← ADD
+        "scenario_results":   sim_result.get("scenario_results", []),
+        "impact_predictions": sim_result.get("impact_predictions", {}),
     }
 
 
@@ -139,16 +154,16 @@ def list_actions():
     """List all supported simulation actions with parameter specs and interactive examples."""
     return {
         "actions": [
-            # ── Topology Mutations ──────────────────────────────────────
+            # ─── Topology Mutations ───────────────────────────────────────────
             {
                 "category": "topology",
                 "action": "move_server",
                 "description": "Move a compute node to a different ToR switch. Clips old edge, creates new edge, updates subnet assignment.",
                 "params": {
                     "server_id": "string — ID of the compute node to move",
-                    "target_router": "string — ID of the destination ToR router",
+                    "target_router_id": "string — ID of the destination ToR router",
                 },
-                "example": {"server_id": "server-1", "target_router": "router-2"},
+                "example": {"server_id": "droplet-1-tor1/server-1", "target_router_id": "droplet-2-tor2/router-2"},
                 "constraints_checked": ["power_envelope", "rack_u_space", "compute_overload", "network_sla"],
             },
             {
@@ -157,11 +172,12 @@ def list_actions():
                 "description": "Provision a new compute blade under a ToR switch. Validates rack U-space and power headroom before allowing.",
                 "params": {
                     "node_id": "string — unique ID for the new node",
-                    "router_id": "string — parent ToR router ID",
+                    "target_router_id": "string — parent ToR router ID",
+                    "target_rack_id": "string — parent Rack/Droplet ID",
                     "ip": "string (optional) — static IP in the ToR subnet",
                     "role": "string (optional, default: compute-node)",
                 },
-                "example": {"node_id": "server-5", "router_id": "router-1", "ip": "10.10.1.13"},
+                "example": {"node_id": "server-5", "target_router_id": "droplet-1-tor1/router-1", "target_rack_id": "droplet-1-tor1", "ip": "10.10.1.13"},
                 "constraints_checked": ["rack_u_space", "power_envelope", "compute_overload"],
             },
             {
@@ -171,10 +187,10 @@ def list_actions():
                 "params": {
                     "node_id": "string — ID of the node to remove",
                 },
-                "example": {"node_id": "server-4"},
+                "example": {"node_id": "droplet-2-tor2/server-4"},
                 "constraints_checked": ["compute_overload", "power_envelope"],
             },
-            # ── Metric Injection Scenarios ──────────────────────────────
+            # ─── Metric Injection Scenarios ───────────────────────────────
             {
                 "category": "compute",
                 "action": "inject_compute",
@@ -186,7 +202,7 @@ def list_actions():
                     "power_watts": "float — simulated power draw per node. Warning >1200W subnet total, Limit 1400W",
                 },
                 "example": {
-                    "node_id": "server-1",
+                    "node_id": "droplet-1-tor1/server-1",
                     "cpu_percent": 92.0,
                     "memory_percent": 88.0,
                     "power_watts": 310.0,
@@ -198,14 +214,14 @@ def list_actions():
                 "action": "inject_network",
                 "description": "Inject latency and packet-loss metrics onto a specific BGP link. Simulates NIC flap, MTU mismatch, or congested spine path.",
                 "params": {
-                    "source_node": "string — link source (e.g. spine-router, router-1)",
-                    "target_node": "string — link target (e.g. router-1, server-1)",
+                    "source_node_id": "string — link source (e.g. spine-router, router-1)",
+                    "target_node_id": "string — link target (e.g. router-1, server-1)",
                     "latency_ms": "float — injected latency. Warning >100ms, SLA Breach >150ms",
                     "packet_loss_percent": "float — injected packet loss. Warning >2%, Breach >5%",
                 },
                 "example": {
-                    "source_node": "spine-router",
-                    "target_node": "router-1",
+                    "source_node_id": "droplet-3-mgmt/spine-router",
+                    "target_node_id": "droplet-1-tor1/router-1",
                     "latency_ms": 160.0,
                     "packet_loss_percent": 6.5,
                 },
@@ -214,13 +230,13 @@ def list_actions():
             {
                 "category": "storage",
                 "action": "inject_storage",
-                "description": "Inject elevated disk IOPS into a compute, middleware, or graph-database node. Simulates DB full-scan, backup job, or bulk data ingestion.",
+                "description": "Inject elevated disk IOPS into a compute, middleware, or graph-database node. Simulates storage network path congestion or heavy full-table indexing scans.",
                 "params": {
                     "node_id": "string — target node (compute-node, middleware, or graph-database)",
                     "disk_iops": "int — injected IOPS. Warning >3000, Breach >4000 (NVMe limit)",
                 },
                 "example": {
-                    "node_id": "server-2",
+                    "node_id": "droplet-1-tor1/server-2",
                     "disk_iops": 3900,
                 },
                 "constraints_checked": ["storage_iops", "future_iops_projection"],
@@ -231,13 +247,13 @@ def list_actions():
                 "description": "Migrate a node to a different physical rack (droplet) and ToR switch in one operation. Updates both the network edge and the droplet metadata tag.",
                 "params": {
                     "node_id": "string — node to migrate",
-                    "target_droplet": "string — destination rack droplet (e.g. droplet-2-tor2)",
-                    "target_router": "string — destination ToR router (e.g. router-2)",
+                    "target_rack_id": "string — destination rack droplet (e.g. droplet-2-tor2)",
+                    "target_router_id": "string — destination ToR router (e.g. router-2)",
                 },
                 "example": {
-                    "node_id": "server-1",
-                    "target_droplet": "droplet-2-tor2",
-                    "target_router": "router-2",
+                    "node_id": "droplet-1-tor1/server-1",
+                    "target_rack_id": "droplet-2-tor2",
+                    "target_router_id": "droplet-2-tor2/router-2",
                 },
                 "constraints_checked": ["rack_u_space", "power_envelope", "network_sla"],
             },

@@ -101,9 +101,9 @@
   }
   textarea:focus { outline: none; border-color: var(--accent2); }
 
-  /* ── Param rows ── */
+  /* ── Type values rows ── */
   .param-row { display: flex; gap: 8px; margin-bottom: 8px; align-items: center; }
-  .param-row label { color: var(--muted); width: 120px; flex-shrink: 0; font-size: 11px; }
+  .param-row label { color: var(--muted); width: 140px; flex-shrink: 0; font-size: 11px; }
   .param-row input, .param-row select {
     flex: 1; background: var(--bg); border: 1px solid var(--border);
     color: var(--text); padding: 6px 10px; border-radius: 5px;
@@ -112,7 +112,7 @@
   .param-row input:focus, .param-row select:focus { outline: none; border-color: var(--accent2); }
   select option { background: var(--bg); }
 
-  /* ── Response area ── */
+  /* ── Response framework ── */
   .response-area { flex: 1; overflow-y: auto; padding: 16px 20px; }
   .response-meta { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
   .status-pill { padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 700; }
@@ -131,19 +131,7 @@
   .json-bool { color: var(--accent); }
   .json-null { color: var(--muted); }
 
-  /* ── Topology graph ── */
-  #topo-canvas { width: 100%; height: 100%; }
-  .topo-wrap { flex: 1; position: relative; overflow: hidden; }
-  .topo-legend {
-    position: absolute; top: 12px; right: 12px;
-    background: var(--surface); border: 1px solid var(--border);
-    border-radius: 8px; padding: 10px 14px; font-size: 11px;
-  }
-  .legend-row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
-  .legend-row:last-child { margin-bottom: 0; }
-  .legend-dot { width: 10px; height: 10px; border-radius: 50%; }
-
-  /* ── Metrics grid ── */
+  /* ── Metrics grid layout ── */
   .metrics-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; padding: 16px 20px; overflow-y: auto; }
   .metric-card {
     background: var(--surface); border: 1px solid var(--border);
@@ -183,7 +171,7 @@
   .btn:hover { opacity: .85; }
   .section-title { color: var(--muted); font-size: 10px; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 10px; }
 
-  /* ── NLP panel ── */
+  /* ── NLP styling panel ── */
   .nlp-panel { padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 16px; }
   .nlp-input-wrap { display: flex; gap: 8px; }
   .nlp-input-wrap input {
@@ -202,7 +190,7 @@
   .nlp-result { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 16px; }
   .nlp-result .resolved { color: var(--accent); font-weight: 700; margin-bottom: 8px; }
 
-  /* ── Simulate panel ── */
+  /* ── Simulate panel configuration ── */
   .sim-panel { padding: 20px; overflow-y: auto; }
   .scenario-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; margin-bottom: 20px; }
   .scenario-card {
@@ -226,15 +214,15 @@
   .warning-item { background: #2a2010; border-left: 3px solid var(--warn); padding: 8px 12px; border-radius: 0 4px 4px 0; margin-bottom: 6px; font-size: 11px; line-height: 1.5; }
   .rec-item { background: #0d2a20; border-left: 3px solid var(--accent); padding: 8px 12px; border-radius: 0 4px 4px 0; margin-bottom: 6px; font-size: 11px; line-height: 1.5; }
 
-  /* ── Spinner ── */
+  /* ── Spinner loader ── */
   .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin .6s linear infinite; }
   @keyframes spin { to { transform: rotate(360deg); } }
 
-  /* ── Empty state ── */
+  /* ── Empty interface text elements ── */
   .empty { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 60px 20px; color: var(--muted); gap: 8px; }
   .empty .icon { font-size: 32px; opacity: .4; }
 
-  /* ── Toast ── */
+  /* ── Pop toast banner ── */
   #toast {
     position: fixed; bottom: 24px; right: 24px;
     background: var(--surface); border: 1px solid var(--border);
@@ -259,7 +247,6 @@
 </header>
 
 <div class="layout">
-  <!-- Sidebar nav -->
   <nav>
     <div class="nav-section">Topology</div>
     <div class="nav-item active" onclick="openPanel('raw')" data-endpoint="/api/v1/topology" data-method="GET" id="nav-topology">
@@ -305,7 +292,6 @@
     </div>
   </nav>
 
-  <!-- Main content -->
   <main>
     <div class="tabs">
       <div class="tab active" id="tab-raw" onclick="switchTab('raw')">Response</div>
@@ -315,7 +301,6 @@
       <div class="tab" id="tab-chaos" onclick="switchTab('chaos')">Chaos</div>
     </div>
 
-    <!-- RAW response panel -->
     <div class="panel active" id="panel-raw">
       <div class="request-bar">
         <span id="rawMethod" class="method-badge get">GET</span>
@@ -335,7 +320,6 @@
       </div>
     </div>
 
-    <!-- Live metrics panel -->
     <div class="panel" id="panel-metrics">
       <div class="request-bar">
         <span class="method-badge get">GET</span>
@@ -348,7 +332,6 @@
       </div>
     </div>
 
-    <!-- Simulate panel -->
     <div class="panel" id="panel-simulate">
       <div class="request-bar">
         <span class="method-badge post">POST</span>
@@ -364,7 +347,6 @@
       </div>
     </div>
 
-    <!-- NLP panel -->
     <div class="panel" id="panel-nlp">
       <div class="request-bar">
         <span class="method-badge post">POST</span>
@@ -375,26 +357,25 @@
         <div>
           <div class="section-title" style="margin-bottom:8px">Natural language request</div>
           <div class="nlp-input-wrap">
-            <input id="nlpInput" placeholder="e.g. move server-1 to router-2" onkeydown="if(event.key==='Enter')sendNLP()"/>
+            <input id="nlpInput" placeholder="e.g. remove server-1" onkeydown="if(event.key==='Enter')sendNLP()"/>
           </div>
         </div>
         <div>
           <div class="section-title" style="margin-bottom:8px">Examples</div>
           <div class="nlp-examples">
             <div class="nlp-chip" onclick="setNLP(this)">move server-1 to router-2</div>
-            <div class="nlp-chip" onclick="setNLP(this)">add 2 compute nodes to rack tor1</div>
+            <div class="nlp-chip" onclick="setNLP(this)">add compute node server-5 to router-1</div>
             <div class="nlp-chip" onclick="setNLP(this)">remove server-4</div>
             <div class="nlp-chip" onclick="setNLP(this)">inject CPU 92% on server-1</div>
             <div class="nlp-chip" onclick="setNLP(this)">latency 160ms spine-router to router-1</div>
             <div class="nlp-chip" onclick="setNLP(this)">3900 iops on server-2</div>
-            <div class="nlp-chip" onclick="setNLP(this)">what happens if spine-router fails</div>
+            <div class="nlp-chip" onclick="setNLP(this)">migrate rack server-1 to droplet-2-tor2 and router-2</div>
           </div>
         </div>
         <div id="nlpResult" style="display:none" class="nlp-result"></div>
       </div>
     </div>
 
-    <!-- Chaos panel -->
     <div class="panel" id="panel-chaos">
       <div class="chaos-panel">
         <div class="chaos-status" id="chaosStatus">
@@ -448,7 +429,7 @@ let selectedScenario = null;
 // ── Base URL ──────────────────────────────────────────────────
 function base() { return $('baseUrl').value.replace(/\/$/, ''); }
 
-// ── API helper ────────────────────────────────────────────────
+// ── API connection wrapper helper ────────────────────────────────────────────────
 async function api(method, path, body) {
   const t0 = performance.now();
   const opts = { method, headers: { 'Content-Type': 'application/json' } };
@@ -460,7 +441,7 @@ async function api(method, path, body) {
   return { status: res.status, data, ms };
 }
 
-// ── Health check ──────────────────────────────────────────────
+// ── Health loop check ──────────────────────────────────────────────
 async function healthCheck() {
   try {
     const r = await fetch(base() + '/health', { signal: AbortSignal.timeout(3000) });
@@ -470,7 +451,7 @@ async function healthCheck() {
 setInterval(healthCheck, 5000);
 healthCheck();
 
-// ── Tab / panel switching ─────────────────────────────────────
+// ── Tab panels layout view managers ─────────────────────────────────────
 function switchTab(name) {
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
   document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
@@ -499,7 +480,7 @@ function openRaw(endpoint, method, body) {
   sendRaw();
 }
 
-// ── Raw request ───────────────────────────────────────────────
+// ── Raw routing request ───────────────────────────────────────────────
 async function sendRaw() {
   const method = $('rawMethod').textContent;
   const endpoint = $('rawEndpoint').textContent;
@@ -528,8 +509,9 @@ async function sendRaw() {
   btn.textContent = 'Send';
 }
 
-// ── JSON syntax highlight ─────────────────────────────────────
+// ── JSON output layout tokenizer highlighting ─────────────────────────────────────
 function syntaxHL(json) {
+  if (typeof json !== 'string') json = JSON.stringify(json, null, 2);
   return json.replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, m => {
     if (/^"/.test(m)) return /:$/.test(m) ? '<span class="json-key">' + m + '</span>' : '<span class="json-str">' + m + '</span>';
     if (/true|false/.test(m)) return '<span class="json-bool">' + m + '</span>';
@@ -538,7 +520,7 @@ function syntaxHL(json) {
   });
 }
 
-// ── Live Metrics ──────────────────────────────────────────────
+// ── Live Prometheus aggregation telemetry metrics ──────────────────────────────────────────────
 async function loadMetrics() {
   const grid = $('metricsGrid');
   grid.innerHTML = '<div class="empty"><div class="spinner"></div></div>';
@@ -583,22 +565,22 @@ function toggleAutoRefresh() {
   }
 }
 
-// ── Scenarios ─────────────────────────────────────────────────
+// ── Sandboxed Scenarios catalog definitions ─────────────────────────────────────────────────
 const SCENARIOS = [
   { id: 'move_server', cat: 'topology', name: 'Move server', desc: 'Move a compute node to a different ToR switch',
-    params: [{k:'server_id',l:'Server ID',v:'server-1'},{k:'target_router',l:'Target router',v:'router-2'}] },
+    params: [{k:'server_id',l:'Server ID',v:'droplet-1-tor1/server-1'},{k:'target_router_id',l:'Target router ID',v:'droplet-2-tor2/router-2'}] },
   { id: 'add_compute', cat: 'topology', name: 'Add compute node', desc: 'Provision a new compute blade under a ToR switch',
-    params: [{k:'node_id',l:'New node ID',v:'server-5'},{k:'router_id',l:'Router ID',v:'router-1'},{k:'ip',l:'IP address',v:'10.10.1.13'}] },
+    params: [{k:'node_id',l:'New node ID',v:'server-5'},{k:'target_router_id',l:'Target Router ID',v:'droplet-1-tor1/router-1'},{k:'target_rack_id',l:'Target Rack ID',v:'droplet-1-tor1'},{k:'ip',l:'IP address',v:'10.10.1.13'}] },
   { id: 'remove_node', cat: 'topology', name: 'Remove node', desc: 'Decommission an existing node from the topology',
-    params: [{k:'node_id',l:'Node ID',v:'server-4'}] },
+    params: [{k:'node_id',l:'Node ID',v:'droplet-2-tor2/server-4'}] },
   { id: 'migrate_rack', cat: 'topology', name: 'Rack migration', desc: 'Migrate a node to a different physical rack and ToR',
-    params: [{k:'node_id',l:'Node ID',v:'server-1'},{k:'target_droplet',l:'Target droplet',v:'droplet-2-tor2'},{k:'target_router',l:'Target router',v:'router-2'}] },
+    params: [{k:'node_id',l:'Node ID',v:'droplet-1-tor1/server-1'},{k:'target_rack_id',l:'Target Rack ID',v:'droplet-2-tor2'},{k:'target_router_id',l:'Target Router ID',v:'droplet-2-tor2/router-2'}] },
   { id: 'inject_compute', cat: 'compute', name: 'Inject CPU/memory stress', desc: 'Simulate batch job peaks or runaway processes',
-    params: [{k:'node_id',l:'Node ID',v:'server-1'},{k:'cpu_percent',l:'CPU %',v:'92'},{k:'memory_percent',l:'Memory %',v:'88'},{k:'power_watts',l:'Power (W)',v:'310'}] },
+    params: [{k:'node_id',l:'Node ID',v:'droplet-1-tor1/server-1'},{k:'cpu_percent',l:'CPU %',v:'92'},{k:'memory_percent',l:'Memory %',v:'88'},{k:'power_watts',l:'Power (W)',v:'310'}] },
   { id: 'inject_network', cat: 'network', name: 'Inject network degradation', desc: 'Simulate BGP path congestion or NIC flap',
-    params: [{k:'source_node',l:'Source node',v:'spine-router'},{k:'target_node',l:'Target node',v:'router-1'},{k:'latency_ms',l:'Latency (ms)',v:'160'},{k:'packet_loss_percent',l:'Packet loss %',v:'6.5'}] },
+    params: [{k:'source_node_id',l:'Source node ID',v:'droplet-3-mgmt/spine-router'},{k:'target_node_id',l:'Target node ID',v:'droplet-1-tor1/router-1'},{k:'latency_ms',l:'Latency (ms)',v:'160'},{k:'packet_loss_percent',l:'Packet loss %',v:'6.5'}] },
   { id: 'inject_storage', cat: 'storage', name: 'Inject storage IOPS', desc: 'Simulate NVMe saturation or heavy DB scans',
-    params: [{k:'node_id',l:'Node ID',v:'server-2'},{k:'disk_iops',l:'Disk IOPS',v:'3900'}] },
+    params: [{k:'node_id',l:'droplet-1-tor1/server-2'},{k:'disk_iops',l:'Disk IOPS',v:'3900'}] },
 ];
 
 function buildScenarios() {
@@ -643,40 +625,49 @@ async function runScenario() {
     const { status, data, ms } = await api('POST', '/api/v1/simulate', {
       action: selectedScenario.id, params, projection_steps: steps
     });
-    renderSimResult(data, status, ms);
+    renderSimResult(data, status, ms, 'simResult');
   } catch (e) {
     $('simResult').innerHTML = `<div class="sim-result"><span style="color:var(--danger)">Error: ${e.message}</span></div>`;
   }
   btn.disabled = false; btn.textContent = 'Run Scenario';
 }
 
-function renderSimResult(data, status, ms) {
-  if (!data) { $('simResult').innerHTML = '<div class="sim-result">No response</div>'; return; }
-  const allowed = data.allowed;
-  const violations = data.reasons || [];
-  const warnings = data.warnings || [];
-  const recs = data.recommendations || [];
+// --- FIXED: Render compliance status results cleanly matching correct backend report parameters ---
+function renderSimResult(data, status, ms, targetContainerId) {
+  const container = $(targetContainerId);
+  if (!data) { container.innerHTML = '<div class="sim-result">No response payload block returned</div>'; return; }
+  
+  // Resolve mapping bounds whether returned flat or wrapped within sub-reports
+  const allowed = data.allowed !== undefined ? data.allowed : (data.simulation_report ? data.simulation_report.allowed : false);
+  const verdict = data.verdict || (allowed ? 'PASS ✅' : 'FAIL ❌');
+  const violations = data.reasons || (data.simulation_report ? data.simulation_report.reasons : []);
+  const warnings = data.warnings || (data.simulation_report ? data.simulation_report.warnings : []);
+  const recs = data.recommendations || (data.simulation_report ? data.simulation_report.recommendations : []);
+  const cloneId = data.clone_id || '—';
+  const projectionSteps = data.projection_steps || (data.simulation_report ? data.simulation_report.projection_steps : 0);
+
   let html = `<div class="sim-result">
-    <div class="verdict ${allowed ? 'pass' : 'fail'}">${data.verdict || (allowed ? 'PASS ✅' : 'FAIL ❌')}</div>
-    <div style="color:var(--muted);font-size:11px;margin-bottom:12px">${ms}ms · clone ${data.clone_id || '—'} · ${data.projection_steps || 0} projection steps</div>`;
-  if (violations.length) {
+    <div class="verdict ${allowed ? 'pass' : 'fail'}">${verdict}</div>
+    <div style="color:var(--muted);font-size:11px;margin-bottom:12px">${ms}ms · clone ${cloneId} · ${projectionSteps} projection steps</div>`;
+  
+  if (violations && violations.length) {
     html += `<div class="section-title" style="margin-bottom:6px">Violations (${violations.length})</div>`;
     html += violations.map(v => `<div class="violation-item">${v}</div>`).join('');
   }
-  if (warnings.length) {
+  if (warnings && warnings.length) {
     html += `<div class="section-title" style="margin-top:10px;margin-bottom:6px">Warnings (${warnings.length})</div>`;
     html += warnings.map(w => `<div class="warning-item">${w}</div>`).join('');
   }
-  if (recs.length) {
+  if (recs && recs.length) {
     html += `<div class="section-title" style="margin-top:10px;margin-bottom:6px">Recommendations</div>`;
     html += recs.map(r => `<div class="rec-item">→ ${r}</div>`).join('');
   }
-  if (!violations.length && !warnings.length) {
+  if ((!violations || !violations.length) && (!warnings || !warnings.length)) {
     html += `<div class="rec-item">All constraint tiers cleared — change is safe to apply.</div>`;
   }
   html += `<div style="margin-top:14px"><button class="btn btn-ghost" onclick="showRawSim(${JSON.stringify(JSON.stringify(data))})">View full JSON</button></div>`;
   html += '</div>';
-  $('simResult').innerHTML = html;
+  container.innerHTML = html;
 }
 
 function showRawSim(jsonStr) {
@@ -690,7 +681,7 @@ function showRawSim(jsonStr) {
   switchTab('raw');
 }
 
-// ── NLP ───────────────────────────────────────────────────────
+// ── Automated Intent Natural Language Processing ───────────────────────────────────────────────────────
 function setNLP(el) { $('nlpInput').value = el.textContent; }
 
 async function sendNLP() {
@@ -698,27 +689,37 @@ async function sendNLP() {
   if (!text) return;
   const btn = $('nlpSendBtn');
   btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>';
-  $('nlpResult').style.display = 'none';
+  
+  const resContainer = $('nlpResult');
+  resContainer.style.display = 'block';
+  resContainer.innerHTML = 'Analyzing intent streams via Gemini pipeline…';
+  
   try {
     const { status, data, ms } = await api('POST', '/api/v1/metrics/resolve', { request_text: text });
-    const res = $('nlpResult');
-    res.style.display = '';
+    
     if (status === 422) {
-      res.innerHTML = `<div style="color:var(--danger);margin-bottom:8px">Could not resolve request (422)</div><pre>${syntaxHL(JSON.stringify(data, null, 2))}</pre>`;
+      resContainer.innerHTML = `<div style="color:var(--danger);margin-bottom:8px">Could not resolve request (422)</div><pre>${syntaxHL(JSON.stringify(data, null, 2))}</pre>`;
+    } else if (status === 200 && data.simulation_report) {
+      // Clean display panel headers
+      resContainer.innerHTML = `
+        <div class="resolved" style="margin-bottom:12px">Resolved: ${data.parser_metadata?.action || '—'} · parser: ${data.parser_metadata?.parser_used || '—'} · ${ms}ms</div>
+        <div id="nlpPipelineView"></div>
+      `;
+      // Run the same structured render formatting loop directly inside the NLP tab container!
+      renderSimResult(data, status, ms, 'nlpPipelineView');
     } else {
-      res.innerHTML = `
-        <div class="resolved">Resolved: ${data.action || '—'} · parser: ${data.parser_used || '—'} · ${ms}ms</div>
-        <div style="margin-bottom:10px;color:var(--muted);font-size:11px">Nodes: ${(data.resolved_node_ids || []).join(', ') || 'none'}</div>
-        <pre>${syntaxHL(JSON.stringify(data, null, 2))}</pre>`;
+      resContainer.innerHTML = `
+        <div class="resolved">Intent Mapped · ${ms}ms</div>
+        <pre>${syntaxHL(JSON.stringify(data, null, 2))}</pre>
+      `;
     }
   } catch (e) {
-    $('nlpResult').style.display = '';
-    $('nlpResult').innerHTML = `<span style="color:var(--danger)">Error: ${e.message}</span>`;
+    resContainer.innerHTML = `<span style="color:var(--danger)">Error running NLP simulation: ${e.message}</span>`;
   }
   btn.disabled = false; btn.textContent = 'Resolve';
 }
 
-// ── Chaos ─────────────────────────────────────────────────────
+// ── Chaos Engineering ─────────────────────────────────────────────
 async function loadChaosStatus() {
   try {
     const { data } = await api('GET', '/api/v1/chaos/status');
@@ -758,7 +759,7 @@ function showChaosLog(data) {
   $('chaosOutput').innerHTML = syntaxHL(JSON.stringify(data, null, 2));
 }
 
-// ── Toast ─────────────────────────────────────────────────────
+// ── Toast notifications ─────────────────────────────────────────────────────
 function toast(msg) {
   const el = $('toast');
   el.textContent = msg;
@@ -766,7 +767,7 @@ function toast(msg) {
   setTimeout(() => el.classList.remove('show'), 2500);
 }
 
-// ── Init ──────────────────────────────────────────────────────
+// ── Initialization blocks ──────────────────────────────────────────────────────
 buildScenarios();
 
 // Wire first nav item properly

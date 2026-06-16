@@ -1,8 +1,8 @@
 """
 api/models/requests.py
 Pydantic request body models for all API endpoints.
-EXTENDED: added all new simulation action types so FastAPI validates
-incoming payloads correctly and /docs shows full examples.
+EXTENDED: Updated interactive documentation examples to use strict normalized keys
+(e.g., target_router_id, target_rack_id) to eliminate validation drops in Swagger UI.
 """
 from pydantic import BaseModel, Field
 from typing import Optional, Any
@@ -23,64 +23,68 @@ class SimulationRequest(BaseModel):
     class Config:
         json_schema_extra = {
             "examples": [
-                # ── Topology mutations ──────────────────────────────────
+                # ─── Topology mutations ───────────────────────────
                 {
                     "action": "move_server",
-                    "params": {"server_id": "server-1", "target_router": "router-2"},
+                    "params": {
+                        "server_id": "droplet-1-tor1/server-1", 
+                        "target_router_id": "droplet-2-tor2/router-2"
+                    },
                     "projection_steps": 3,
                 },
                 {
                     "action": "add_compute",
                     "params": {
                         "node_id": "server-5",
-                        "router_id": "router-1",
+                        "target_router_id": "droplet-1-tor1/router-1",
+                        "target_rack_id": "droplet-1-tor1",
                         "ip": "10.10.1.13",
                     },
                     "projection_steps": 3,
                 },
                 {
                     "action": "remove_node",
-                    "params": {"node_id": "server-4"},
+                    "params": {"node_id": "droplet-2-tor2/server-4"},
                     "projection_steps": 3,
                 },
-                # ── Compute stress injection ────────────────────────────
+                # ─── Compute stress injection ─────────────────────
                 {
                     "action": "inject_compute",
                     "params": {
-                        "node_id": "server-1",
+                        "node_id": "droplet-1-tor1/server-1",
                         "cpu_percent": 92.0,
                         "memory_percent": 88.0,
                         "power_watts": 310.0,
                     },
                     "projection_steps": 5,
                 },
-                # ── Network degradation injection ───────────────────────
+                # ─── Network degradation injection ────────────────
                 {
                     "action": "inject_network",
                     "params": {
-                        "source_node": "spine-router",
-                        "target_node": "router-1",
+                        "source_node": "droplet-3-mgmt/spine-router",
+                        "target_node": "droplet-1-tor1/router-1",
                         "latency_ms": 160.0,
                         "packet_loss_percent": 6.5,
                     },
                     "projection_steps": 3,
                 },
-                # ── Storage IOPS injection ──────────────────────────────
+                # ─── Storage IOPS injection ───────────────────────
                 {
                     "action": "inject_storage",
                     "params": {
-                        "node_id": "server-2",
+                        "node_id": "droplet-1-tor1/server-2",
                         "disk_iops": 3900,
                     },
                     "projection_steps": 5,
                 },
-                # ── Rack migration ──────────────────────────────────────
+                # ─── Rack migration ───────────────────────────────
                 {
                     "action": "migrate_rack",
                     "params": {
-                        "node_id": "server-1",
+                        "node_id": "droplet-1-tor1/server-1",
                         "target_droplet": "droplet-2-tor2",
-                        "target_router": "router-2",
+                        "target_router": "droplet-2-tor2/router-2",
                     },
                     "projection_steps": 3,
                 },

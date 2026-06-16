@@ -34,17 +34,17 @@ API_HOST = os.getenv("API_HOST", "0.0.0.0")
 API_PORT = int(os.getenv("API_PORT", 5000))
 DEBUG = os.getenv("DEBUG", "true").lower() == "true"
 
-# InfluxDB Configuration
+# InfluxDB
 INFLUXDB_URL = os.getenv("INFLUXDB_URL", "http://localhost:8086")
 INFLUXDB_TOKEN = os.getenv("INFLUXDB_TOKEN", "my-super-secret-admin-token-12345")
 INFLUXDB_ORG = os.getenv("INFLUXDB_ORG", "hpe-digital-twin-org")
 INFLUXDB_BUCKET = os.getenv("INFLUXDB_BUCKET", "telemetry_bucket")
 
-# Natural-language parser
+# Natural-language parser — Gemini
 ENABLE_LLM_PARSER = os.getenv("ENABLE_LLM_PARSER", "false").lower() == "true"
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
-GEMINI_MODEL = os.getenv("GEMINI_MODEL", "")
-GEMINI_TIMEOUT_SECONDS = max(10.0, float(os.getenv("GEMINI_TIMEOUT_SECONDS", "10")))
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+GEMINI_TIMEOUT_SECONDS = max(10.0, float(os.getenv("GEMINI_TIMEOUT_SECONDS", "15")))
 GEMINI_RETRY_ATTEMPTS = min(3, max(1, int(os.getenv("GEMINI_RETRY_ATTEMPTS", "3"))))
 
 # Simulation audit DB
