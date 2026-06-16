@@ -14,7 +14,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from config.settings import API_HOST, API_PORT, DEBUG
 from config.constants import APP_NAME
 from core.orchestrator import orchestrator
-from api.routes import topology, telemetry, simulation, chaos, reports, impact, history
+from api.routes import topology, telemetry, metrics_resolve, chaos
 
 logging.basicConfig(
     level=logging.DEBUG if DEBUG else logging.INFO,
@@ -43,8 +43,8 @@ app = FastAPI(
     version="1.0.0",
     description=(
         "Config-file-driven Digital Twin Orchestrator for HPE private cloud infrastructure. "
-        "Provides live topology graphs, real-time Prometheus-style telemetry, "
-        "what-if simulation with RCU isolation, and 4-tier constraint validation."
+        "Provides live topology graphs, real-time Prometheus telemetry, NLP request "
+        "resolution, and 30-day InfluxDB historical context."
     ),
     lifespan=lifespan,
 )
@@ -58,11 +58,8 @@ app.add_middleware(
 
 app.include_router(topology.router)
 app.include_router(telemetry.router)
-app.include_router(simulation.router)
+app.include_router(metrics_resolve.router)
 app.include_router(chaos.router)
-app.include_router(reports.router)
-app.include_router(impact.router)
-app.include_router(history.router)
 
 
 @app.get("/", tags=["Root"])
@@ -73,7 +70,7 @@ def root():
         "docs": "/docs",
         "status": "/api/v1/telemetry/status",
         "topology": "/api/v1/topology",
-        "simulate": "/api/v1/simulate",
+        "resolve": "/api/v1/metrics/resolve",
     }
 
 

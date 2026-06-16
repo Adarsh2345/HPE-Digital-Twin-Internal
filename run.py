@@ -60,7 +60,6 @@ def run_bootstrap_only():
 
 async def run_demo():
     from core.orchestrator import orchestrator
-    from core.validation.validator_engine import ValidatorEngine
     from core.graph.graph_serializer import graph_to_dict
 
     orchestrator.bootstrap()
@@ -68,8 +67,6 @@ async def run_demo():
     await orchestrator._tick()
 
     G = orchestrator.get_derived_graph()
-    validator = ValidatorEngine()
-    result = validator.validate(G)
     graph_data = graph_to_dict(G)
 
     print("\n" + "═" * 60)
@@ -77,15 +74,6 @@ async def run_demo():
     print("═" * 60)
     print(f"  Nodes: {len(graph_data.get('nodes', []))}")
     print(f"  Edges: {len(graph_data.get('edges', []))}")
-    print(f"  Validation: {'✅ PASS' if result['allowed'] else '❌ FAIL'}")
-    if result["reasons"]:
-        print("  Violations:")
-        for r in result["reasons"]:
-            print(f"     • {r}")
-    if result["warnings"]:
-        print("  Warnings:")
-        for w in result["warnings"]:
-            print(f"     ⚠ {w}")
     print("═" * 60)
 
 if __name__ == "__main__":

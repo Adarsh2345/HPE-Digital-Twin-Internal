@@ -1,17 +1,8 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
-from enum import StrEnum
 from typing import Annotated, Any, Literal
-from uuid import uuid4
 
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter
-
-
-class Severity(StrEnum):
-    HARD_BLOCK = "HARD_BLOCK"
-    RISK_WARNING = "RISK_WARNING"
-    INFO = "INFO"
 
 
 class RequestBase(BaseModel):
@@ -119,65 +110,3 @@ def normalize_request(payload: dict[str, Any]) -> SimulationRequest:
 
 def _rack_from_router(router_id: str) -> str:
     return router_id.split("/", 1)[0] if "/" in router_id else ""
-
-
-class Violation(BaseModel):
-    code: str
-    severity: Severity
-    scope: str
-    device_id: str | None = None
-    message: str
-    current_value: float | str | None = None
-    limit_value: float | str | None = None
-    unit: str | None = None
-    threshold_source: str = "default"
-    projected: bool = False
-    projection_step: int | None = None
-    telemetry_provenance: str = "Synthetic Demo"
-
-
-class BlastRadiusResult(BaseModel):
-    failed_device_id: str
-    affected_by_type: dict[str, list[str]] = Field(default_factory=dict)
-    paths: list[list[str]] = Field(default_factory=list)
-    affected_count: int = 0
-    execution_time_ms: float = 0
-    truncated: bool = False
-
-
-class AlternativeScore(BaseModel):
-    target: str
-    score: float
-    components: dict[str, float]
-    capacity: dict[str, float]
-    warnings: list[str] = Field(default_factory=list)
-    reasons: list[str] = Field(default_factory=list)
-
-
-class SimulationResult(BaseModel):
-    sim_id: str = Field(default_factory=lambda: str(uuid4()))
-    action: str
-    request_text: str | None = None
-    parser_used: str = "form"
-    allowed: bool
-    verdict: str
-    graph_version: str
-    telemetry_timestamp: datetime | None = None
-    telemetry_provenance: str = "Synthetic Demo"
-    mutation_summary: dict[str, Any] = Field(default_factory=dict)
-    current_violations: list[Violation] = Field(default_factory=list)
-    projected_violations: list[Violation] = Field(default_factory=list)
-    warnings: list[str] = Field(default_factory=list)
-    blast_radius: BlastRadiusResult | None = None
-    alternatives: list[AlternativeScore] = Field(default_factory=list)
-    remediation: list[str] = Field(default_factory=list)
-    report_url: str | None = None
-    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    execution_time_ms: float
-    reasons: list[str] = Field(default_factory=list)
-    recommendations: list[str] = Field(default_factory=list)
-    tier_results: dict[str, Any] = Field(default_factory=dict)
-    projections: list[dict[str, Any]] = Field(default_factory=list)
-    projected_graph: dict[str, Any] = Field(default_factory=dict)
-    clone_id: str = ""
-    historical_context: dict[str, Any] = Field(default_factory=dict)
