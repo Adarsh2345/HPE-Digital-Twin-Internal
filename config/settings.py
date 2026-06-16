@@ -1,7 +1,9 @@
 import os
 from pathlib import Path
+from dotenv import load_dotenv
 
 BASE_DIR = Path(__file__).parent.parent
+load_dotenv(BASE_DIR / ".env")
 
 # Infrastructure
 INFRASTRUCTURE_YAML = os.getenv("INFRASTRUCTURE_YAML", str(BASE_DIR / "infrastructure" / "infrastructure.yaml"))
@@ -22,7 +24,7 @@ NETBOX_URL = os.getenv("NETBOX_URL", "http://localhost:8080")
 NETBOX_TOKEN = os.getenv("NETBOX_TOKEN", "demo-token-12345")
 
 # Prometheus
-PROMETHEUS_URL = os.getenv("PROMETHEUS_URL", "http://localhost:9090")
+PROMETHEUS_URL = os.getenv("PROMETHEUS_URL", "http://168.144.91.25:9090")
 
 # Telemetry Loop
 TELEMETRY_INTERVAL_SECONDS = int(os.getenv("TELEMETRY_INTERVAL", 12))
@@ -38,6 +40,15 @@ INFLUXDB_TOKEN = os.getenv("INFLUXDB_TOKEN", "my-super-secret-admin-token-12345"
 INFLUXDB_ORG = os.getenv("INFLUXDB_ORG", "hpe-digital-twin-org")
 INFLUXDB_BUCKET = os.getenv("INFLUXDB_BUCKET", "telemetry_bucket")
 
+# Natural-language parser
+ENABLE_LLM_PARSER = os.getenv("ENABLE_LLM_PARSER", "false").lower() == "true"
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "")
+GEMINI_TIMEOUT_SECONDS = max(10.0, float(os.getenv("GEMINI_TIMEOUT_SECONDS", "10")))
+GEMINI_RETRY_ATTEMPTS = min(3, max(1, int(os.getenv("GEMINI_RETRY_ATTEMPTS", "3"))))
+
+# Simulation audit DB
+SIMULATION_DB_PATH = os.getenv("SIMULATION_DB_PATH", "/tmp/hpe_digital_twin_simulations.sqlite3")
 
 # Constraints
 POWER_LIMIT_WATTS = float(os.getenv("POWER_LIMIT_WATTS", 1400.0))
@@ -90,8 +101,8 @@ POWER_CHAOS_MEAN = 320.0
 POWER_CHAOS_STD = 50.0
 
 # ML / Analytics pipeline
-ML_HISTORY_DAYS    = int(os.getenv("ML_HISTORY_DAYS", 30))
-ML_MODEL_DIR       = os.getenv("ML_MODEL_DIR", str(BASE_DIR / "models"))
-ML_K_MIN           = int(os.getenv("ML_K_MIN", 2))
-ML_K_MAX           = int(os.getenv("ML_K_MAX", 6))
-ML_RF_ESTIMATORS   = int(os.getenv("ML_RF_ESTIMATORS", 100))
+ML_HISTORY_DAYS = int(os.getenv("ML_HISTORY_DAYS", 30))
+ML_MODEL_DIR = os.getenv("ML_MODEL_DIR", str(BASE_DIR / "models"))
+ML_K_MIN = int(os.getenv("ML_K_MIN", 2))
+ML_K_MAX = int(os.getenv("ML_K_MAX", 6))
+ML_RF_ESTIMATORS = int(os.getenv("ML_RF_ESTIMATORS", 100))

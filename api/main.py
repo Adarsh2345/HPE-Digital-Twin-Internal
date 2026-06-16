@@ -5,7 +5,6 @@ Starts the orchestrator bootstrap and 12s telemetry loop on startup.
 """
 import asyncio
 import logging
-import logging.config
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -13,10 +12,8 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from config.settings import API_HOST, API_PORT, DEBUG
 from config.constants import APP_NAME
-from api.routes import topology, telemetry, simulation, chaos, reports, analytics
-
 from core.orchestrator import orchestrator
-from api.routes import topology, telemetry, simulation, chaos, reports
+from api.routes import topology, telemetry, simulation, chaos, reports, analytics, metrics_resolve
 
 logging.basicConfig(
     level=logging.DEBUG if DEBUG else logging.INFO,
@@ -45,8 +42,9 @@ app = FastAPI(
     version="1.0.0",
     description=(
         "Config-file-driven Digital Twin Orchestrator for HPE private cloud infrastructure. "
-        "Provides live topology graphs, real-time Prometheus-style telemetry, "
-        "what-if simulation with RCU isolation, and 4-tier constraint validation."
+        "Provides live topology graphs, real-time Prometheus telemetry, "
+        "what-if simulation with RCU isolation, 4-tier constraint validation, "
+        "and NLP request resolution."
     ),
     lifespan=lifespan,
 )
@@ -64,6 +62,8 @@ app.include_router(simulation.router)
 app.include_router(chaos.router)
 app.include_router(reports.router)
 app.include_router(analytics.router)
+app.include_router(metrics_resolve.router)
+
 
 @app.get("/", tags=["Root"])
 def root():
@@ -74,6 +74,7 @@ def root():
         "status": "/api/v1/telemetry/status",
         "topology": "/api/v1/topology",
         "simulate": "/api/v1/simulate",
+        "resolve": "/api/v1/metrics/resolve",
     }
 
 

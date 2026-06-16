@@ -3,12 +3,12 @@ core/orchestrator.py
 Central system orchestrator.
 Phase 1: Bootstrap — parse YAML → build topology graph → sync to Neo4j & InfluxDB
 Phase 2: 12s async loop — scrape metrics → derive state → cache to Redis, Neo4j, & InfluxDB
-FIXED: Connection timeout limits implemented to prevent silent socket hangs under CLI run.
 """
 import asyncio
 import time
 import logging
 import json
+import threading
 import networkx as nx
 from typing import Optional
 
@@ -17,6 +17,7 @@ from config.settings import (
     TELEMETRY_INTERVAL_SECONDS,
     REDIS_HOST, REDIS_PORT, REDIS_DB,
     NEO4J_URI, NEO4J_USER, NEO4J_PASSWORD,
+    PROMETHEUS_URL,
 )
 from config.constants import REDIS_KEYS
 from integrations.influxdb.influx_client import InfluxClient
@@ -36,18 +37,19 @@ class Orchestrator:
         self.processor = None
         self.state_builder = None
         self.neo4j_client = None
-        self.influx_client = None  # 🟢 Allocated slot in memory map
+        self.influx_client = None
 
         self._redis = None
         self._loop_task: Optional[asyncio.Task] = None
         self._tick_count = 0
         self._last_tick: float = 0.0
+        self._graph_lock = threading.Lock()
 
     def bootstrap(self):
         logger.info("============================================================")
         logger.info("    HPE DIGITAL TWIN — BOOTSTRAPPING ENGINE METADATA        ")
         logger.info("============================================================")
-        
+
         from core.parser.yaml_parser import YAMLParser
         from core.parser.topology_loader import TopologyLoader
         from core.graph.topology_builder import TopologyBuilder
@@ -57,10 +59,10 @@ class Orchestrator:
         from core.telemetry.chaos_engine import ChaosEngine
 
         self.chaos_engine = ChaosEngine()
-        self.scraper = PrometheusScraper()
+        self.scraper = PrometheusScraper(prometheus_url=PROMETHEUS_URL)
         self.processor = TelemetryProcessor()
         self.state_builder = DerivedStateBuilder()
-        self.influx_client = InfluxClient()  # 🟢 Instantiated cleanly here
+        self.influx_client = InfluxClient()
 
         self.parser = YAMLParser(INFRASTRUCTURE_YAML)
         self.parser.load()
@@ -70,16 +72,15 @@ class Orchestrator:
 
         builder = TopologyBuilder()
         self.initial_graph = builder.build(self.topology)
-        self.derived_graph = self.initial_graph.copy()
+        with self._graph_lock:
+            self.derived_graph = self.initial_graph.copy()
 
         logger.info(f"Topology compiled cleanly: {self.initial_graph.number_of_nodes()} nodes loaded.")
 
-        # Fire resilient fallback connection hooks
         self._connect_redis()
         self._connect_and_sync_neo4j()
-        self.influx_client.connect()  # 🟢 Establish structural socket connection link
+        self.influx_client.connect()
 
-        # 🟢 FIXED: Clean, multi-space indentation block ensuring accurate syntax parsing
         try:
             from core.analytics.model_registry import registry as _ml_registry
             _ml_registry.bootstrap(days=30)
@@ -96,9 +97,9 @@ class Orchestrator:
                 socket_connect_timeout=1, socket_timeout=1, decode_responses=True,
             )
             self._redis.ping()
-            logger.info(f"✅ Redis cluster cache layer link active.")
+            logger.info("✅ Redis cluster cache layer link active.")
         except Exception as e:
-            logger.warning(f"⚠ Redis database target unreachable. Falling back to clean local in-memory caching matrix mode.")
+            logger.warning("⚠ Redis database target unreachable. Falling back to in-memory caching.")
             self._redis = None
 
     def _connect_and_sync_neo4j(self):
@@ -108,12 +109,12 @@ class Orchestrator:
 
             logger.info(f"Connecting to Neo4j transaction graph instance on {NEO4J_URI}...")
             self.neo4j_client = Neo4jClient(uri=NEO4J_URI, user=NEO4J_USER, password=NEO4J_PASSWORD)
-            
+
             base_dict = graph_to_dict(self.initial_graph)
             self.neo4j_client.save_base_topology(base_dict)
-            logger.info(f"✅ Neo4j immutable baseline topology synchronized successfully.")
+            logger.info("✅ Neo4j immutable baseline topology synchronized successfully.")
         except Exception as e:
-            logger.warning(f"⚠ Neo4j ledger database instance offline. Skipping automated point-in-time snapshot timeline generation.")
+            logger.warning("⚠ Neo4j ledger database instance offline. Skipping snapshot timeline generation.")
             self.neo4j_client = None
 
     async def start_telemetry_loop(self):
@@ -126,24 +127,28 @@ class Orchestrator:
             await asyncio.sleep(TELEMETRY_INTERVAL_SECONDS)
 
     async def _tick(self):
-        from core.telemetry.metrics_generator import MetricsGenerator
-        
         self._tick_count += 1
         self._last_tick = time.time()
 
         nodes = [{"id": n, **self.initial_graph.nodes[n]} for n in self.initial_graph.nodes]
         edges = [{"source": u, "target": v, **self.initial_graph.edges[u, v]} for u, v in self.initial_graph.edges]
 
-        generator = MetricsGenerator(chaos_mode=self.chaos_engine.is_active)
-        self.scraper.set_generator(generator)
         raw_snapshot = await self.scraper.scrape(nodes, edges)
+        raw_snapshot = self.chaos_engine.apply(raw_snapshot, self.initial_graph)
         processed = self.processor.process(raw_snapshot)
 
-        self.derived_graph = self.state_builder.build_derived_state(self.initial_graph, processed)
-        
+        published = self.state_builder.build_derived_state(self.initial_graph, processed)
+        published.graph.update(
+            version=f"{self.initial_graph.graph.get('version', 'graph')}:{self._tick_count}",
+            telemetry_provenance="Synthetic Demo",
+            telemetry_timestamp=processed.get("processed_at"),
+        )
+        with self._graph_lock:
+            self.derived_graph = published
+
         self._cache_to_redis(processed)
         self._sync_to_neo4j()
-        self._sync_to_influxdb()  # 🟢 Auto-invoke pipeline stream syncs
+        self._sync_to_influxdb()
 
     def _cache_to_redis(self, snapshot: dict):
         if self._redis is None:
@@ -171,14 +176,15 @@ class Orchestrator:
         try:
             from core.graph.graph_serializer import graph_to_dict
             derived_dict = graph_to_dict(self.derived_graph)
-            self.influx_client.write_snapshot_points(derived_dict)  # 🟢 Write live points
+            self.influx_client.write_snapshot_points(derived_dict)
         except Exception as e:
             logger.warning(f"InfluxDB time-series streaming skipped: {e}")
 
     def get_derived_graph(self) -> nx.DiGraph:
-        if self.derived_graph is None:
-            raise RuntimeError("Orchestrator not bootstrapped yet.")
-        return self.derived_graph
+        with self._graph_lock:
+            if self.derived_graph is None:
+                raise RuntimeError("Orchestrator not bootstrapped yet.")
+            return self.derived_graph
 
     def get_topology_dict(self) -> dict:
         return self.topology or {}

@@ -1,0 +1,783 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>HPE Digital Twin — Test Console</title>
+<style>
+  :root {
+    --bg: #0d1117;
+    --surface: #161b22;
+    --surface2: #1c2333;
+    --border: #30363d;
+    --accent: #00d4aa;
+    --accent2: #3b82f6;
+    --danger: #f85149;
+    --warn: #e3b341;
+    --text: #e6edf3;
+    --muted: #7d8590;
+    --healthy: #3fb950;
+    --warning: #e3b341;
+    --critical: #f85149;
+    --font: 'JetBrains Mono', 'Fira Code', monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: var(--font); font-size: 13px; min-height: 100vh; }
+
+  /* ── Top bar ── */
+  header {
+    display: flex; align-items: center; gap: 16px;
+    padding: 12px 24px; background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    position: sticky; top: 0; z-index: 100;
+  }
+  .logo { color: var(--accent); font-size: 15px; font-weight: 700; letter-spacing: -0.5px; white-space: nowrap; }
+  .logo span { color: var(--muted); font-weight: 400; }
+  .base-url-wrap { display: flex; align-items: center; gap: 8px; flex: 1; }
+  .base-url-wrap label { color: var(--muted); white-space: nowrap; }
+  .base-url-wrap input {
+    flex: 1; background: var(--bg); border: 1px solid var(--border);
+    color: var(--text); padding: 6px 10px; border-radius: 6px;
+    font-family: var(--font); font-size: 12px;
+  }
+  .pulse { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); flex-shrink: 0; }
+  .pulse.alive { background: var(--healthy); box-shadow: 0 0 6px var(--healthy); animation: pulse 2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+
+  /* ── Layout ── */
+  .layout { display: grid; grid-template-columns: 220px 1fr; height: calc(100vh - 49px); }
+
+  /* ── Sidebar ── */
+  nav { background: var(--surface); border-right: 1px solid var(--border); padding: 16px 0; overflow-y: auto; }
+  .nav-section { padding: 0 16px 8px; color: var(--muted); font-size: 10px; letter-spacing: 1px; text-transform: uppercase; margin-top: 16px; }
+  .nav-section:first-child { margin-top: 0; }
+  .nav-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 8px 16px; cursor: pointer; border-left: 2px solid transparent;
+    color: var(--muted); transition: all .15s;
+  }
+  .nav-item:hover { color: var(--text); background: var(--surface2); }
+  .nav-item.active { color: var(--accent); border-left-color: var(--accent); background: var(--surface2); }
+  .nav-item .method { font-size: 9px; font-weight: 700; padding: 2px 5px; border-radius: 3px; letter-spacing: .5px; }
+  .get { background: #1a3a2a; color: var(--healthy); }
+  .post { background: #1a2a3a; color: var(--accent2); }
+
+  /* ── Main panel ── */
+  main { display: flex; flex-direction: column; overflow: hidden; }
+
+  /* ── Tab bar ── */
+  .tabs { display: flex; border-bottom: 1px solid var(--border); background: var(--surface); }
+  .tab { padding: 10px 20px; cursor: pointer; color: var(--muted); border-bottom: 2px solid transparent; transition: all .15s; font-size: 12px; }
+  .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+  /* ── Panel content ── */
+  .panel { display: none; flex: 1; overflow: hidden; flex-direction: column; }
+  .panel.active { display: flex; }
+
+  /* ── Request bar ── */
+  .request-bar {
+    display: flex; align-items: center; gap: 8px;
+    padding: 12px 20px; border-bottom: 1px solid var(--border);
+    background: var(--surface2);
+  }
+  .method-badge { padding: 5px 10px; border-radius: 5px; font-size: 11px; font-weight: 700; letter-spacing: .5px; }
+  .endpoint-display { flex: 1; color: var(--text); font-size: 12px; background: var(--bg); padding: 6px 10px; border-radius: 5px; border: 1px solid var(--border); word-break: break-all; }
+  .send-btn {
+    padding: 7px 18px; border-radius: 6px; border: none; cursor: pointer;
+    font-family: var(--font); font-size: 12px; font-weight: 700;
+    background: var(--accent); color: #000; transition: opacity .15s;
+  }
+  .send-btn:hover { opacity: .85; }
+  .send-btn:disabled { opacity: .4; cursor: not-allowed; }
+
+  /* ── Body / params ── */
+  .body-area { padding: 16px 20px; border-bottom: 1px solid var(--border); background: var(--surface2); }
+  .body-area label { color: var(--muted); font-size: 11px; display: block; margin-bottom: 6px; }
+  textarea {
+    width: 100%; background: var(--bg); border: 1px solid var(--border);
+    color: var(--text); padding: 10px; border-radius: 6px;
+    font-family: var(--font); font-size: 12px; resize: vertical; min-height: 120px;
+    line-height: 1.6;
+  }
+  textarea:focus { outline: none; border-color: var(--accent2); }
+
+  /* ── Param rows ── */
+  .param-row { display: flex; gap: 8px; margin-bottom: 8px; align-items: center; }
+  .param-row label { color: var(--muted); width: 120px; flex-shrink: 0; font-size: 11px; }
+  .param-row input, .param-row select {
+    flex: 1; background: var(--bg); border: 1px solid var(--border);
+    color: var(--text); padding: 6px 10px; border-radius: 5px;
+    font-family: var(--font); font-size: 12px;
+  }
+  .param-row input:focus, .param-row select:focus { outline: none; border-color: var(--accent2); }
+  select option { background: var(--bg); }
+
+  /* ── Response area ── */
+  .response-area { flex: 1; overflow-y: auto; padding: 16px 20px; }
+  .response-meta { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+  .status-pill { padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 700; }
+  .s2xx { background: #1a3a2a; color: var(--healthy); }
+  .s4xx { background: #3a1a1a; color: var(--danger); }
+  .s5xx { background: #3a1a1a; color: var(--danger); }
+  .timing { color: var(--muted); font-size: 11px; }
+  pre {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 8px; padding: 16px; overflow-x: auto;
+    line-height: 1.6; white-space: pre-wrap; word-break: break-word;
+  }
+  .json-key { color: #79c0ff; }
+  .json-str { color: #a5d6ff; }
+  .json-num { color: #ffa657; }
+  .json-bool { color: var(--accent); }
+  .json-null { color: var(--muted); }
+
+  /* ── Topology graph ── */
+  #topo-canvas { width: 100%; height: 100%; }
+  .topo-wrap { flex: 1; position: relative; overflow: hidden; }
+  .topo-legend {
+    position: absolute; top: 12px; right: 12px;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 8px; padding: 10px 14px; font-size: 11px;
+  }
+  .legend-row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+  .legend-row:last-child { margin-bottom: 0; }
+  .legend-dot { width: 10px; height: 10px; border-radius: 50%; }
+
+  /* ── Metrics grid ── */
+  .metrics-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; padding: 16px 20px; overflow-y: auto; }
+  .metric-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 8px; padding: 14px;
+  }
+  .metric-card .node-id { color: var(--muted); font-size: 10px; margin-bottom: 4px; word-break: break-all; }
+  .metric-card .node-name { color: var(--text); font-size: 13px; font-weight: 700; margin-bottom: 8px; }
+  .metric-card .state-badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 10px; font-weight: 700; margin-bottom: 10px; }
+  .state-healthy { background: #1a3a2a; color: var(--healthy); }
+  .state-warning { background: #3a2a0a; color: var(--warn); }
+  .state-critical { background: #3a1a1a; color: var(--danger); }
+  .state-unknown { background: #2a2a2a; color: var(--muted); }
+  .bar-row { margin-bottom: 6px; }
+  .bar-label { display: flex; justify-content: space-between; color: var(--muted); font-size: 10px; margin-bottom: 3px; }
+  .bar-track { height: 4px; background: var(--border); border-radius: 2px; overflow: hidden; }
+  .bar-fill { height: 100%; border-radius: 2px; transition: width .4s; }
+  .bar-cpu { background: var(--accent2); }
+  .bar-mem { background: var(--accent); }
+
+  /* ── Chaos panel ── */
+  .chaos-panel { padding: 20px; overflow-y: auto; }
+  .chaos-status {
+    display: flex; align-items: center; gap: 16px;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 10px; padding: 20px; margin-bottom: 20px;
+  }
+  .chaos-indicator { width: 16px; height: 16px; border-radius: 50%; background: var(--muted); flex-shrink: 0; }
+  .chaos-indicator.on { background: var(--danger); box-shadow: 0 0 10px var(--danger); animation: pulse 1s infinite; }
+  .chaos-label { font-size: 16px; font-weight: 700; }
+  .chaos-sub { color: var(--muted); font-size: 11px; margin-top: 2px; }
+  .chaos-actions { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
+  .btn { padding: 8px 16px; border-radius: 6px; border: none; cursor: pointer; font-family: var(--font); font-size: 12px; font-weight: 700; transition: all .15s; }
+  .btn-danger { background: var(--danger); color: #fff; }
+  .btn-safe { background: var(--healthy); color: #000; }
+  .btn-blue { background: var(--accent2); color: #fff; }
+  .btn-ghost { background: transparent; color: var(--muted); border: 1px solid var(--border); }
+  .btn:hover { opacity: .85; }
+  .section-title { color: var(--muted); font-size: 10px; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 10px; }
+
+  /* ── NLP panel ── */
+  .nlp-panel { padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 16px; }
+  .nlp-input-wrap { display: flex; gap: 8px; }
+  .nlp-input-wrap input {
+    flex: 1; background: var(--bg); border: 1px solid var(--border);
+    color: var(--text); padding: 10px 14px; border-radius: 6px;
+    font-family: var(--font); font-size: 13px;
+  }
+  .nlp-input-wrap input:focus { outline: none; border-color: var(--accent); }
+  .nlp-examples { display: flex; flex-wrap: wrap; gap: 8px; }
+  .nlp-chip {
+    padding: 5px 12px; border-radius: 20px; border: 1px solid var(--border);
+    color: var(--muted); cursor: pointer; font-size: 11px; transition: all .15s;
+    background: var(--surface);
+  }
+  .nlp-chip:hover { border-color: var(--accent); color: var(--accent); }
+  .nlp-result { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 16px; }
+  .nlp-result .resolved { color: var(--accent); font-weight: 700; margin-bottom: 8px; }
+
+  /* ── Simulate panel ── */
+  .sim-panel { padding: 20px; overflow-y: auto; }
+  .scenario-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; margin-bottom: 20px; }
+  .scenario-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 8px; padding: 14px; cursor: pointer; transition: all .15s;
+  }
+  .scenario-card:hover { border-color: var(--accent2); }
+  .scenario-card.selected { border-color: var(--accent); background: var(--surface2); }
+  .scenario-name { font-size: 13px; font-weight: 700; margin-bottom: 4px; }
+  .scenario-desc { color: var(--muted); font-size: 11px; line-height: 1.5; }
+  .scenario-cat { font-size: 9px; font-weight: 700; letter-spacing: .5px; text-transform: uppercase; margin-bottom: 6px; }
+  .cat-topology { color: var(--accent); }
+  .cat-compute { color: var(--accent2); }
+  .cat-network { color: var(--warn); }
+  .cat-storage { color: #d2a8ff; }
+  .sim-result { background: var(--surface); border-radius: 8px; border: 1px solid var(--border); padding: 16px; margin-top: 16px; }
+  .verdict { font-size: 18px; font-weight: 700; margin-bottom: 12px; }
+  .verdict.pass { color: var(--healthy); }
+  .verdict.fail { color: var(--danger); }
+  .violation-item { background: #3a1a1a; border-left: 3px solid var(--danger); padding: 8px 12px; border-radius: 0 4px 4px 0; margin-bottom: 6px; font-size: 11px; line-height: 1.5; }
+  .warning-item { background: #2a2010; border-left: 3px solid var(--warn); padding: 8px 12px; border-radius: 0 4px 4px 0; margin-bottom: 6px; font-size: 11px; line-height: 1.5; }
+  .rec-item { background: #0d2a20; border-left: 3px solid var(--accent); padding: 8px 12px; border-radius: 0 4px 4px 0; margin-bottom: 6px; font-size: 11px; line-height: 1.5; }
+
+  /* ── Spinner ── */
+  .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin .6s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── Empty state ── */
+  .empty { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 60px 20px; color: var(--muted); gap: 8px; }
+  .empty .icon { font-size: 32px; opacity: .4; }
+
+  /* ── Toast ── */
+  #toast {
+    position: fixed; bottom: 24px; right: 24px;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 8px; padding: 10px 16px; font-size: 12px;
+    opacity: 0; transition: opacity .2s; pointer-events: none; z-index: 999;
+  }
+  #toast.show { opacity: 1; }
+
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">HPE Digital Twin <span>/ Test Console</span></div>
+  <div class="base-url-wrap">
+    <label>API</label>
+    <input id="baseUrl" value="http://localhost:5000" placeholder="http://localhost:5000"/>
+  </div>
+  <div id="healthPulse" class="pulse" title="API health"></div>
+</header>
+
+<div class="layout">
+  <!-- Sidebar nav -->
+  <nav>
+    <div class="nav-section">Topology</div>
+    <div class="nav-item active" onclick="openPanel('raw')" data-endpoint="/api/v1/topology" data-method="GET" id="nav-topology">
+      <span class="method get">GET</span> /topology
+    </div>
+    <div class="nav-item" onclick="openPanel('metrics')" id="nav-metrics">
+      <span class="method get">GET</span> /telemetry
+    </div>
+    <div class="nav-item" onclick="openRaw('/api/v1/telemetry/status','GET')" id="nav-status">
+      <span class="method get">GET</span> /telemetry/status
+    </div>
+    <div class="nav-section">Simulation</div>
+    <div class="nav-item" onclick="openPanel('simulate')" id="nav-simulate">
+      <span class="method post">POST</span> /simulate
+    </div>
+    <div class="nav-item" onclick="openRaw('/api/v1/simulate/actions','GET')" id="nav-actions">
+      <span class="method get">GET</span> /simulate/actions
+    </div>
+    <div class="nav-section">Analytics</div>
+    <div class="nav-item" onclick="openRaw('/api/v1/analytics/profiles','GET')">
+      <span class="method get">GET</span> /analytics/profiles
+    </div>
+    <div class="nav-item" onclick="openRaw('/api/v1/analytics/scenarios','GET')">
+      <span class="method get">GET</span> /analytics/scenarios
+    </div>
+    <div class="nav-section">NLP</div>
+    <div class="nav-item" onclick="openPanel('nlp')" id="nav-nlp">
+      <span class="method post">POST</span> /metrics/resolve
+    </div>
+    <div class="nav-section">Chaos</div>
+    <div class="nav-item" onclick="openPanel('chaos')" id="nav-chaos">
+      <span class="method post">POST</span> /chaos
+    </div>
+    <div class="nav-section">Reports</div>
+    <div class="nav-item" onclick="openRaw('/api/v1/reports/health','GET')">
+      <span class="method get">GET</span> /reports/health
+    </div>
+    <div class="nav-item" onclick="openRaw('/api/v1/reports/validate','GET')">
+      <span class="method get">GET</span> /reports/validate
+    </div>
+    <div class="nav-item" onclick="openRaw('/api/v1/reports/summary','GET')">
+      <span class="method get">GET</span> /reports/summary
+    </div>
+  </nav>
+
+  <!-- Main content -->
+  <main>
+    <div class="tabs">
+      <div class="tab active" id="tab-raw" onclick="switchTab('raw')">Response</div>
+      <div class="tab" id="tab-metrics" onclick="switchTab('metrics')">Live Metrics</div>
+      <div class="tab" id="tab-simulate" onclick="switchTab('simulate')">Simulate</div>
+      <div class="tab" id="tab-nlp" onclick="switchTab('nlp')">NLP Resolve</div>
+      <div class="tab" id="tab-chaos" onclick="switchTab('chaos')">Chaos</div>
+    </div>
+
+    <!-- RAW response panel -->
+    <div class="panel active" id="panel-raw">
+      <div class="request-bar">
+        <span id="rawMethod" class="method-badge get">GET</span>
+        <span id="rawEndpoint" class="endpoint-display">/api/v1/topology</span>
+        <button class="send-btn" onclick="sendRaw()" id="rawSendBtn">Send</button>
+      </div>
+      <div class="body-area" id="rawBodyArea" style="display:none">
+        <label>Request body (JSON)</label>
+        <textarea id="rawBody" rows="6"></textarea>
+      </div>
+      <div class="response-area">
+        <div id="rawMeta" class="response-meta" style="display:none">
+          <span id="rawStatus" class="status-pill"></span>
+          <span id="rawTiming" class="timing"></span>
+        </div>
+        <pre id="rawOutput"><span style="color:var(--muted)">Hit Send to make a request.</span></pre>
+      </div>
+    </div>
+
+    <!-- Live metrics panel -->
+    <div class="panel" id="panel-metrics">
+      <div class="request-bar">
+        <span class="method-badge get">GET</span>
+        <span class="endpoint-display">/api/v1/telemetry</span>
+        <button class="send-btn" onclick="loadMetrics()">Refresh</button>
+        <button class="btn btn-ghost" onclick="toggleAutoRefresh()" id="autoRefreshBtn" style="margin-left:4px">Auto: OFF</button>
+      </div>
+      <div id="metricsGrid" class="metrics-grid">
+        <div class="empty"><div class="icon">📡</div><div>Click Refresh to load live metrics</div></div>
+      </div>
+    </div>
+
+    <!-- Simulate panel -->
+    <div class="panel" id="panel-simulate">
+      <div class="request-bar">
+        <span class="method-badge post">POST</span>
+        <span class="endpoint-display">/api/v1/simulate</span>
+        <button class="send-btn" onclick="runScenario()" id="simSendBtn">Run Scenario</button>
+      </div>
+      <div class="sim-panel" id="simPanel">
+        <div class="section-title">Choose a scenario</div>
+        <div class="scenario-grid" id="scenarioGrid"></div>
+        <div class="section-title">Parameters</div>
+        <div id="simParams" style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px"></div>
+        <div id="simResult"></div>
+      </div>
+    </div>
+
+    <!-- NLP panel -->
+    <div class="panel" id="panel-nlp">
+      <div class="request-bar">
+        <span class="method-badge post">POST</span>
+        <span class="endpoint-display">/api/v1/metrics/resolve</span>
+        <button class="send-btn" onclick="sendNLP()" id="nlpSendBtn">Resolve</button>
+      </div>
+      <div class="nlp-panel">
+        <div>
+          <div class="section-title" style="margin-bottom:8px">Natural language request</div>
+          <div class="nlp-input-wrap">
+            <input id="nlpInput" placeholder="e.g. move server-1 to router-2" onkeydown="if(event.key==='Enter')sendNLP()"/>
+          </div>
+        </div>
+        <div>
+          <div class="section-title" style="margin-bottom:8px">Examples</div>
+          <div class="nlp-examples">
+            <div class="nlp-chip" onclick="setNLP(this)">move server-1 to router-2</div>
+            <div class="nlp-chip" onclick="setNLP(this)">add 2 compute nodes to rack tor1</div>
+            <div class="nlp-chip" onclick="setNLP(this)">remove server-4</div>
+            <div class="nlp-chip" onclick="setNLP(this)">inject CPU 92% on server-1</div>
+            <div class="nlp-chip" onclick="setNLP(this)">latency 160ms spine-router to router-1</div>
+            <div class="nlp-chip" onclick="setNLP(this)">3900 iops on server-2</div>
+            <div class="nlp-chip" onclick="setNLP(this)">what happens if spine-router fails</div>
+          </div>
+        </div>
+        <div id="nlpResult" style="display:none" class="nlp-result"></div>
+      </div>
+    </div>
+
+    <!-- Chaos panel -->
+    <div class="panel" id="panel-chaos">
+      <div class="chaos-panel">
+        <div class="chaos-status" id="chaosStatus">
+          <div class="chaos-indicator" id="chaosIndicator"></div>
+          <div>
+            <div class="chaos-label" id="chaosLabel">Checking...</div>
+            <div class="chaos-sub" id="chaosSub">Loading chaos status</div>
+          </div>
+        </div>
+        <div class="section-title">Scenario</div>
+        <div class="param-row" style="margin-bottom:16px">
+          <label>Scenario type</label>
+          <select id="chaosScenario">
+            <option value="full">full — all dimensions</option>
+            <option value="compute">compute — CPU + memory</option>
+            <option value="network">network — latency + packet loss</option>
+            <option value="storage">storage — IOPS saturation</option>
+            <option value="compute_saturation">compute_saturation</option>
+            <option value="thermal_rise">thermal_rise</option>
+            <option value="spine_latency">spine_latency</option>
+            <option value="pdu_failure">pdu_failure</option>
+          </select>
+        </div>
+        <div class="section-title">Target nodes (leave blank for all)</div>
+        <div class="param-row" style="margin-bottom:16px">
+          <label>Node IDs</label>
+          <input id="chaosNodes" placeholder="e.g. droplet-1-tor1/server-1 (comma separated)"/>
+        </div>
+        <div class="chaos-actions">
+          <button class="btn btn-danger" onclick="enableChaos()">🔥 Enable Chaos</button>
+          <button class="btn btn-safe" onclick="disableChaos()">✅ Disable Chaos</button>
+          <button class="btn btn-blue" onclick="loadChaosStatus()">↻ Refresh Status</button>
+        </div>
+        <div id="chaosLog" style="display:none">
+          <div class="section-title">Last response</div>
+          <pre id="chaosOutput"></pre>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<div id="toast"></div>
+
+<script>
+const $ = id => document.getElementById(id);
+let autoRefreshTimer = null;
+let currentPanel = 'raw';
+let selectedScenario = null;
+
+// ── Base URL ──────────────────────────────────────────────────
+function base() { return $('baseUrl').value.replace(/\/$/, ''); }
+
+// ── API helper ────────────────────────────────────────────────
+async function api(method, path, body) {
+  const t0 = performance.now();
+  const opts = { method, headers: { 'Content-Type': 'application/json' } };
+  if (body) opts.body = JSON.stringify(body);
+  const res = await fetch(base() + path, opts);
+  const ms = Math.round(performance.now() - t0);
+  let data;
+  try { data = await res.json(); } catch { data = null; }
+  return { status: res.status, data, ms };
+}
+
+// ── Health check ──────────────────────────────────────────────
+async function healthCheck() {
+  try {
+    const r = await fetch(base() + '/health', { signal: AbortSignal.timeout(3000) });
+    $('healthPulse').className = r.ok ? 'pulse alive' : 'pulse';
+  } catch { $('healthPulse').className = 'pulse'; }
+}
+setInterval(healthCheck, 5000);
+healthCheck();
+
+// ── Tab / panel switching ─────────────────────────────────────
+function switchTab(name) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  $('tab-' + name).classList.add('active');
+  $('panel-' + name).classList.add('active');
+  currentPanel = name;
+  if (name === 'chaos') loadChaosStatus();
+  if (name === 'simulate') buildScenarios();
+}
+
+function openPanel(name) {
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  event.currentTarget.classList.add('active');
+  switchTab(name);
+}
+
+function openRaw(endpoint, method, body) {
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  if (event && event.currentTarget) event.currentTarget.classList.add('active');
+  $('rawMethod').textContent = method;
+  $('rawMethod').className = 'method-badge ' + (method === 'GET' ? 'get' : 'post');
+  $('rawEndpoint').textContent = endpoint;
+  $('rawBodyArea').style.display = method === 'POST' ? '' : 'none';
+  if (body) $('rawBody').value = JSON.stringify(body, null, 2);
+  switchTab('raw');
+  sendRaw();
+}
+
+// ── Raw request ───────────────────────────────────────────────
+async function sendRaw() {
+  const method = $('rawMethod').textContent;
+  const endpoint = $('rawEndpoint').textContent;
+  const btn = $('rawSendBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>';
+  $('rawOutput').textContent = 'Loading…';
+  $('rawMeta').style.display = 'none';
+
+  try {
+    let body;
+    if (method === 'POST') {
+      try { body = JSON.parse($('rawBody').value || '{}'); } catch { toast('Invalid JSON body'); btn.disabled = false; btn.textContent = 'Send'; return; }
+    }
+    const { status, data, ms } = await api(method, endpoint, body);
+    const pill = $('rawStatus');
+    pill.textContent = status;
+    pill.className = 'status-pill ' + (status < 300 ? 's2xx' : status < 500 ? 's4xx' : 's5xx');
+    $('rawTiming').textContent = ms + ' ms';
+    $('rawMeta').style.display = 'flex';
+    $('rawOutput').innerHTML = syntaxHL(JSON.stringify(data, null, 2));
+  } catch (e) {
+    $('rawOutput').innerHTML = '<span style="color:var(--danger)">Error: ' + e.message + '</span>';
+  }
+  btn.disabled = false;
+  btn.textContent = 'Send';
+}
+
+// ── JSON syntax highlight ─────────────────────────────────────
+function syntaxHL(json) {
+  return json.replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, m => {
+    if (/^"/.test(m)) return /:$/.test(m) ? '<span class="json-key">' + m + '</span>' : '<span class="json-str">' + m + '</span>';
+    if (/true|false/.test(m)) return '<span class="json-bool">' + m + '</span>';
+    if (/null/.test(m)) return '<span class="json-null">' + m + '</span>';
+    return '<span class="json-num">' + m + '</span>';
+  });
+}
+
+// ── Live Metrics ──────────────────────────────────────────────
+async function loadMetrics() {
+  const grid = $('metricsGrid');
+  grid.innerHTML = '<div class="empty"><div class="spinner"></div></div>';
+  try {
+    const { data } = await api('GET', '/api/v1/telemetry');
+    if (!data || !data.nodes) { grid.innerHTML = '<div class="empty"><div>No data</div></div>'; return; }
+    const nodes = Object.entries(data.nodes);
+    if (!nodes.length) { grid.innerHTML = '<div class="empty"><div>No nodes found</div></div>'; return; }
+    grid.innerHTML = nodes.map(([id, n]) => {
+      const cpu = n.metrics?.cpu_percent ?? 0;
+      const mem = n.metrics?.memory_percent ?? 0;
+      const state = n.state || 'unknown';
+      const shortId = id.includes('/') ? id.split('/')[1] : id;
+      return `<div class="metric-card">
+        <div class="node-id">${id}</div>
+        <div class="node-name">${shortId}</div>
+        <span class="state-badge state-${state}">${state}</span>
+        <div class="bar-row">
+          <div class="bar-label"><span>CPU</span><span>${cpu.toFixed(1)}%</span></div>
+          <div class="bar-track"><div class="bar-fill bar-cpu" style="width:${Math.min(cpu,100)}%"></div></div>
+        </div>
+        <div class="bar-row">
+          <div class="bar-label"><span>MEM</span><span>${mem.toFixed(1)}%</span></div>
+          <div class="bar-track"><div class="bar-fill bar-mem" style="width:${Math.min(mem,100)}%"></div></div>
+        </div>
+      </div>`;
+    }).join('');
+  } catch (e) {
+    grid.innerHTML = '<div class="empty"><div style="color:var(--danger)">Error: ' + e.message + '</div></div>';
+  }
+}
+
+function toggleAutoRefresh() {
+  if (autoRefreshTimer) {
+    clearInterval(autoRefreshTimer);
+    autoRefreshTimer = null;
+    $('autoRefreshBtn').textContent = 'Auto: OFF';
+  } else {
+    loadMetrics();
+    autoRefreshTimer = setInterval(loadMetrics, 5000);
+    $('autoRefreshBtn').textContent = 'Auto: ON';
+  }
+}
+
+// ── Scenarios ─────────────────────────────────────────────────
+const SCENARIOS = [
+  { id: 'move_server', cat: 'topology', name: 'Move server', desc: 'Move a compute node to a different ToR switch',
+    params: [{k:'server_id',l:'Server ID',v:'server-1'},{k:'target_router',l:'Target router',v:'router-2'}] },
+  { id: 'add_compute', cat: 'topology', name: 'Add compute node', desc: 'Provision a new compute blade under a ToR switch',
+    params: [{k:'node_id',l:'New node ID',v:'server-5'},{k:'router_id',l:'Router ID',v:'router-1'},{k:'ip',l:'IP address',v:'10.10.1.13'}] },
+  { id: 'remove_node', cat: 'topology', name: 'Remove node', desc: 'Decommission an existing node from the topology',
+    params: [{k:'node_id',l:'Node ID',v:'server-4'}] },
+  { id: 'migrate_rack', cat: 'topology', name: 'Rack migration', desc: 'Migrate a node to a different physical rack and ToR',
+    params: [{k:'node_id',l:'Node ID',v:'server-1'},{k:'target_droplet',l:'Target droplet',v:'droplet-2-tor2'},{k:'target_router',l:'Target router',v:'router-2'}] },
+  { id: 'inject_compute', cat: 'compute', name: 'Inject CPU/memory stress', desc: 'Simulate batch job peaks or runaway processes',
+    params: [{k:'node_id',l:'Node ID',v:'server-1'},{k:'cpu_percent',l:'CPU %',v:'92'},{k:'memory_percent',l:'Memory %',v:'88'},{k:'power_watts',l:'Power (W)',v:'310'}] },
+  { id: 'inject_network', cat: 'network', name: 'Inject network degradation', desc: 'Simulate BGP path congestion or NIC flap',
+    params: [{k:'source_node',l:'Source node',v:'spine-router'},{k:'target_node',l:'Target node',v:'router-1'},{k:'latency_ms',l:'Latency (ms)',v:'160'},{k:'packet_loss_percent',l:'Packet loss %',v:'6.5'}] },
+  { id: 'inject_storage', cat: 'storage', name: 'Inject storage IOPS', desc: 'Simulate NVMe saturation or heavy DB scans',
+    params: [{k:'node_id',l:'Node ID',v:'server-2'},{k:'disk_iops',l:'Disk IOPS',v:'3900'}] },
+];
+
+function buildScenarios() {
+  const grid = $('scenarioGrid');
+  if (grid.children.length) return;
+  grid.innerHTML = SCENARIOS.map((s, i) =>
+    `<div class="scenario-card" id="sc-${i}" onclick="selectScenario(${i})">
+      <div class="scenario-cat cat-${s.cat}">${s.cat}</div>
+      <div class="scenario-name">${s.name}</div>
+      <div class="scenario-desc">${s.desc}</div>
+    </div>`
+  ).join('');
+  selectScenario(0);
+}
+
+function selectScenario(i) {
+  document.querySelectorAll('.scenario-card').forEach(c => c.classList.remove('selected'));
+  $('sc-' + i).classList.add('selected');
+  selectedScenario = SCENARIOS[i];
+  const wrap = $('simParams');
+  wrap.innerHTML = SCENARIOS[i].params.map(p =>
+    `<div class="param-row">
+      <label>${p.l}</label>
+      <input id="sp-${p.k}" value="${p.v}"/>
+    </div>`
+  ).join('') +
+  `<div class="param-row">
+    <label>Projection steps</label>
+    <input id="sp-projection_steps" value="3" type="number" min="1" max="10"/>
+  </div>`;
+  $('simResult').innerHTML = '';
+}
+
+async function runScenario() {
+  if (!selectedScenario) return;
+  const btn = $('simSendBtn');
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>';
+  const params = {};
+  selectedScenario.params.forEach(p => { params[p.k] = $('sp-' + p.k).value; });
+  const steps = parseInt($('sp-projection_steps').value) || 3;
+  try {
+    const { status, data, ms } = await api('POST', '/api/v1/simulate', {
+      action: selectedScenario.id, params, projection_steps: steps
+    });
+    renderSimResult(data, status, ms);
+  } catch (e) {
+    $('simResult').innerHTML = `<div class="sim-result"><span style="color:var(--danger)">Error: ${e.message}</span></div>`;
+  }
+  btn.disabled = false; btn.textContent = 'Run Scenario';
+}
+
+function renderSimResult(data, status, ms) {
+  if (!data) { $('simResult').innerHTML = '<div class="sim-result">No response</div>'; return; }
+  const allowed = data.allowed;
+  const violations = data.reasons || [];
+  const warnings = data.warnings || [];
+  const recs = data.recommendations || [];
+  let html = `<div class="sim-result">
+    <div class="verdict ${allowed ? 'pass' : 'fail'}">${data.verdict || (allowed ? 'PASS ✅' : 'FAIL ❌')}</div>
+    <div style="color:var(--muted);font-size:11px;margin-bottom:12px">${ms}ms · clone ${data.clone_id || '—'} · ${data.projection_steps || 0} projection steps</div>`;
+  if (violations.length) {
+    html += `<div class="section-title" style="margin-bottom:6px">Violations (${violations.length})</div>`;
+    html += violations.map(v => `<div class="violation-item">${v}</div>`).join('');
+  }
+  if (warnings.length) {
+    html += `<div class="section-title" style="margin-top:10px;margin-bottom:6px">Warnings (${warnings.length})</div>`;
+    html += warnings.map(w => `<div class="warning-item">${w}</div>`).join('');
+  }
+  if (recs.length) {
+    html += `<div class="section-title" style="margin-top:10px;margin-bottom:6px">Recommendations</div>`;
+    html += recs.map(r => `<div class="rec-item">→ ${r}</div>`).join('');
+  }
+  if (!violations.length && !warnings.length) {
+    html += `<div class="rec-item">All constraint tiers cleared — change is safe to apply.</div>`;
+  }
+  html += `<div style="margin-top:14px"><button class="btn btn-ghost" onclick="showRawSim(${JSON.stringify(JSON.stringify(data))})">View full JSON</button></div>`;
+  html += '</div>';
+  $('simResult').innerHTML = html;
+}
+
+function showRawSim(jsonStr) {
+  $('rawBody').value = '';
+  $('rawBodyArea').style.display = 'none';
+  $('rawMethod').textContent = 'GET';
+  $('rawMethod').className = 'method-badge get';
+  $('rawEndpoint').textContent = '/api/v1/simulate (last result)';
+  $('rawMeta').style.display = 'none';
+  $('rawOutput').innerHTML = syntaxHL(JSON.stringify(JSON.parse(jsonStr), null, 2));
+  switchTab('raw');
+}
+
+// ── NLP ───────────────────────────────────────────────────────
+function setNLP(el) { $('nlpInput').value = el.textContent; }
+
+async function sendNLP() {
+  const text = $('nlpInput').value.trim();
+  if (!text) return;
+  const btn = $('nlpSendBtn');
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>';
+  $('nlpResult').style.display = 'none';
+  try {
+    const { status, data, ms } = await api('POST', '/api/v1/metrics/resolve', { request_text: text });
+    const res = $('nlpResult');
+    res.style.display = '';
+    if (status === 422) {
+      res.innerHTML = `<div style="color:var(--danger);margin-bottom:8px">Could not resolve request (422)</div><pre>${syntaxHL(JSON.stringify(data, null, 2))}</pre>`;
+    } else {
+      res.innerHTML = `
+        <div class="resolved">Resolved: ${data.action || '—'} · parser: ${data.parser_used || '—'} · ${ms}ms</div>
+        <div style="margin-bottom:10px;color:var(--muted);font-size:11px">Nodes: ${(data.resolved_node_ids || []).join(', ') || 'none'}</div>
+        <pre>${syntaxHL(JSON.stringify(data, null, 2))}</pre>`;
+    }
+  } catch (e) {
+    $('nlpResult').style.display = '';
+    $('nlpResult').innerHTML = `<span style="color:var(--danger)">Error: ${e.message}</span>`;
+  }
+  btn.disabled = false; btn.textContent = 'Resolve';
+}
+
+// ── Chaos ─────────────────────────────────────────────────────
+async function loadChaosStatus() {
+  try {
+    const { data } = await api('GET', '/api/v1/chaos/status');
+    if (!data) return;
+    const on = data.active;
+    $('chaosIndicator').className = 'chaos-indicator' + (on ? ' on' : '');
+    $('chaosLabel').textContent = on ? '🔥 Chaos ACTIVE' : '✅ System healthy';
+    $('chaosSub').textContent = on
+      ? `Scenario: ${data.scenario} · Nodes: ${data.affected_nodes?.length ? data.affected_nodes.join(', ') : 'all'}`
+      : 'All nodes operating within normal parameters';
+  } catch {}
+}
+
+async function enableChaos() {
+  const scenario = $('chaosScenario').value;
+  const raw = $('chaosNodes').value.trim();
+  const nodes = raw ? raw.split(',').map(s => s.trim()).filter(Boolean) : [];
+  try {
+    const { data } = await api('POST', '/api/v1/chaos/enable', { enable: true, scenario, nodes: nodes.length ? nodes : null });
+    showChaosLog(data);
+    loadChaosStatus();
+    toast('🔥 Chaos enabled');
+  } catch (e) { toast('Error: ' + e.message); }
+}
+
+async function disableChaos() {
+  try {
+    const { data } = await api('POST', '/api/v1/chaos/disable');
+    showChaosLog(data);
+    loadChaosStatus();
+    toast('✅ Chaos disabled');
+  } catch (e) { toast('Error: ' + e.message); }
+}
+
+function showChaosLog(data) {
+  $('chaosLog').style.display = '';
+  $('chaosOutput').innerHTML = syntaxHL(JSON.stringify(data, null, 2));
+}
+
+// ── Toast ─────────────────────────────────────────────────────
+function toast(msg) {
+  const el = $('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 2500);
+}
+
+// ── Init ──────────────────────────────────────────────────────
+buildScenarios();
+
+// Wire first nav item properly
+document.querySelector('.nav-item').addEventListener('click', function() {
+  $('rawMethod').textContent = 'GET';
+  $('rawMethod').className = 'method-badge get';
+  $('rawEndpoint').textContent = '/api/v1/topology';
+  $('rawBodyArea').style.display = 'none';
+  switchTab('raw');
+  sendRaw();
+}, { once: true });
+</script>
+</body>
+</html>
