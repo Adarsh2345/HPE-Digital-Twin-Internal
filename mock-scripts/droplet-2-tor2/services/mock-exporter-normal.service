@@ -1,0 +1,13 @@
+[Unit]
+Description=HPE Digital Twin Normal Mock Exporter
+After=network.target
+
+[Service]
+Type=simple
+User=root
+ExecStart=/usr/bin/python3 /opt/mock_exporter_normal_droplet2.py
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

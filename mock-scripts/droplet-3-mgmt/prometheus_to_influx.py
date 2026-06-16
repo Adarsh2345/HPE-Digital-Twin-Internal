@@ -5,6 +5,7 @@ from influxdb_client import InfluxDBClient, Point
 from influxdb_client.client.write_api import SYNCHRONOUS
 
 # --- ROUTE DATA THROUGH EXPLICIT INTERNAL VPC FABRIC BOUNDARIES ---
+# --- ROUTE DATA THROUGH EXPLICIT INTERNAL VPC FABRIC BOUNDARIES ---
 PROMETHEUS_API = "http://10.10.0.3:9090/api/v1/query"
 INFLUXDB_URL = "http://10.10.0.3:8086"
 INFLUXDB_TOKEN = "my-super-secret-admin-token-12345"
@@ -34,16 +35,16 @@ def main():
     while True:
         print(f"\n[+] Executing telemetry loop scraping sync tick at {time.strftime('%X')}...")
         
-        # 1. Fetch raw metrics values
-        cpu_data   = query_prometheus("node_telemetry_cpu_percent")
-        mem_data   = query_prometheus("node_telemetry_memory_percent")
-        iops_data  = query_prometheus("node_telemetry_disk_iops")
-        power_data = query_prometheus("node_telemetry_power_watts")
-        temp_data  = query_prometheus("node_telemetry_temperature_celsius")
+        # 1. Fetch raw metric values using library-native name registers
+        cpu_data   = query_prometheus("cpu_percent")
+        mem_data   = query_prometheus("memory_percent")
+        iops_data  = query_prometheus("disk_iops")
+        power_data = query_prometheus("power_watts")
+        temp_data  = query_prometheus("temperature_celsius")
         
-        lat_data   = query_prometheus("edge_telemetry_latency_ms")
-        loss_data  = query_prometheus("edge_telemetry_packet_loss_percent")
-        bw_data    = query_prometheus("edge_telemetry_bandwidth_mbps")
+        lat_data   = query_prometheus("latency_ms")
+        loss_data  = query_prometheus("packet_loss_percent")
+        bw_data    = query_prometheus("bandwidth_mbps")
 
         # 2. Harmonize Node Metrics into Moushmi's exact schema layout
         nodes_map = {}
@@ -52,9 +53,10 @@ def main():
             nid = metric.get("id")
             role = metric.get("role")
             droplet = metric.get("droplet", "unknown")
+            rack = metric.get("rack", "unknown")
             if nid:
                 nodes_map[nid] = {
-                    "id": nid, "role": role, "droplet": droplet,
+                    "id": nid, "role": role, "droplet": droplet, "rack": rack,
                     "cpu_percent": float(item.get("value", [0, 0])[1])
                 }
 
@@ -82,15 +84,19 @@ def main():
         for nid, fields in nodes_map.items():
             p = (Point("node_telemetry")
                  .tag("id", nid)
-                 .tag("role", fields.get("role", "compute-node"))
+                 .tag("role", fields.get("role", "unknown"))
                  .tag("droplet", fields.get("droplet", "unknown"))
+                 .tag("rack", fields.get("rack", "unknown"))
                  .field("cpu_percent", fields.get("cpu_percent", 0.0))
                  .field("memory_percent", fields.get("memory_percent", 0.0))
                  .field("disk_iops", fields.get("disk_iops", 0.0))
                  .field("power_watts", fields.get("power_watts", 0.0))
                  .field("temperature_celsius", fields.get("temperature_celsius", 0.0)))
-            write_api.write(bucket=INFLUXDB_BUCKET, org=INFLUXDB_ORG, record=p)
-            print(f"[->] Synced node_telemetry point for logical target: {nid}")
+            try:
+                write_api.write(bucket=INFLUXDB_BUCKET, org=INFLUXDB_ORG, record=p)
+                print(f"[->] Synced node_telemetry point for logical target: {nid}")
+            except Exception as e:
+                print(f"[-] Failed to write node metrics for {nid} to InfluxDB: {e}")
 
         # 3. Harmonize Link Edge Metrics into Moushmi's exact schema layout
         for item in lat_data:
@@ -117,8 +123,11 @@ def main():
                       .field("latency_ms", lat_val)
                       .field("packet_loss_percent", loss_val)
                       .field("bandwidth_mbps", bw_val))
-                write_api.write(bucket=INFLUXDB_BUCKET, org=INFLUXDB_ORG, record=ep)
-                print(f"[->] Synced edge_telemetry link route: {src} -> {tgt}")
+                try:
+                    write_api.write(bucket=INFLUXDB_BUCKET, org=INFLUXDB_ORG, record=ep)
+                    print(f"[->] Synced edge_telemetry link route: {src} -> {tgt}")
+                except Exception as e:
+                    print(f"[-] Failed to write edge metrics for {src}->{tgt} to InfluxDB: {e}")
 
         time.sleep(12)
 

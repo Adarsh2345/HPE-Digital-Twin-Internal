@@ -1,46 +1,62 @@
-# prometheus.yml — Droplet-3 (droplet-3-mgmt)
-# Central Prometheus server. Scrapes mock exporters on all 4 droplets
-# every 15 seconds and stores metrics in its time-series database.
-# Your FastAPI app queries this server at http://10.10.3.17:9090.
-#
-# BEFORE USING: replace the three placeholder IPs below with your
-# actual DigitalOcean private VPC IPs from the DO console.
-# Droplet-3 uses localhost since Prometheus runs on that same machine.
-
 global:
-  scrape_interval:     15s
-  evaluation_interval: 15s
+  scrape_interval: 12s
+  evaluation_interval: 12s
 
 scrape_configs:
-
-  - job_name: "droplet-1-tor1"
+  - job_name: "hpe-digital-twin-telemetry"
     static_configs:
-      - targets: ["DROPLET_1_PRIVATE_IP:9200"]
+      # --- DROPLET 1: Edge Router (tor1) ---
+      - targets: ["10.10.0.4:8000"]
         labels:
+          id: "router-1"
+          role: "edge-router"
           droplet: "droplet-1-tor1"
-          rack:    "compute-rack-1"
-          region:  "blr1"
-
-  - job_name: "droplet-2-tor2"
-    static_configs:
-      - targets: ["DROPLET_2_PRIVATE_IP:9200"]
+          rack: "compute-rack-1"
+      - targets: ["10.10.0.4:8001"]
         labels:
+          id: "router-1-anomaly"
+          role: "edge-router"
+          droplet: "droplet-1-tor1-anomaly"
+          rack: "compute-rack-1"
+
+      # --- DROPLET 2: Compute Node (tor2) ---
+      - targets: ["10.10.0.2:8000"]
+        labels:
+          id: "server-1"
+          role: "compute-node"
           droplet: "droplet-2-tor2"
-          rack:    "compute-rack-2"
-          region:  "blr1"
-
-  - job_name: "droplet-3-mgmt"
-    static_configs:
-      - targets: ["localhost:9200"]
+          rack: "compute-rack-2"
+      - targets: ["10.10.0.2:8001"]
         labels:
+          id: "server-1-anomaly"
+          role: "compute-node"
+          droplet: "droplet-2-tor2-anomaly"
+          rack: "compute-rack-2"
+
+      # --- DROPLET 3: Management Node (mgmt) ---
+      - targets: ["127.0.0.1:8000"]
+        labels:
+          id: "prometheus"
+          role: "mgmt-service"
           droplet: "droplet-3-mgmt"
-          rack:    "management"
-          region:  "blr1"
-
-  - job_name: "droplet-4-storage"
-    static_configs:
-      - targets: ["DROPLET_4_PRIVATE_IP:9200"]
+          rack: "management"
+      - targets: ["127.0.0.1:8001"]
         labels:
+          id: "prometheus-anomaly"
+          role: "mgmt-service"
+          droplet: "droplet-3-mgmt-anomaly"
+          rack: "management"
+
+      # --- DROPLET 4: Storage Fabric ---
+      - targets: ["10.10.0.5:8000"]
+        labels:
+          id: "storage-router"
+          role: "storage-router"
           droplet: "droplet-4-storage"
-          rack:    "storage"
-          region:  "blr1"
+          rack: "storage"
+      - targets: ["10.10.0.5:8001"]
+        labels:
+          id: "storage-router-anomaly"
+          role: "storage-router"
+          droplet: "droplet-4-storage-anomaly"
+          rack: "storage"

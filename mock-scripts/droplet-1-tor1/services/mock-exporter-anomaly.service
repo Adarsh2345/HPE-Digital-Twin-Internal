@@ -1,0 +1,13 @@
+[Unit]
+Description=HPE Digital Twin Anomaly Mock Exporter
+After=network.target
+
+[Service]
+Type=simple
+User=root
+ExecStart=/usr/bin/python3 /opt/mock_exporter_anomaly_droplet1.py
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
