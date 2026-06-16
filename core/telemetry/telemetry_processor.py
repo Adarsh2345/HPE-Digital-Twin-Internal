@@ -14,7 +14,6 @@ MAX_HISTORY = 50  # Keep last 50 snapshots per node
 class TelemetryProcessor:
     def __init__(self):
         self._history: dict[str, deque] = {}
-        self._anomaly_model = None
 
     def process(self, snapshot: dict) -> dict:
         """Enrich snapshot with rolling stats and anomaly flags."""
@@ -26,22 +25,7 @@ class TelemetryProcessor:
                 "rolling_avg_cpu": self._rolling_avg(node_id, "cpu_percent"),
                 "rolling_avg_memory": self._rolling_avg(node_id, "memory_percent"),
                 "anomaly_detected": self._detect_anomaly(node_id, metrics),
-                "provenance": "Synthetic Demo",
             }
-            try:
-                if self._anomaly_model is None:
-                    from ml.isolation_forest import SyntheticIsolationForest
-                    self._anomaly_model = SyntheticIsolationForest()
-                anomaly = self._anomaly_model.score_one({
-                    "cpu_pct": metrics.get("cpu_percent", 0),
-                    "memory_pct": metrics.get("memory_percent", 0),
-                    "temp_c": metrics.get("temperature_celsius", 0),
-                    "power_w": metrics.get("power_watts", 0),
-                    "net_io_mbps": metrics.get("network_rx_mbps", 0) + metrics.get("network_tx_mbps", 0),
-                })
-                enriched.update(anomaly)
-            except ImportError:
-                pass
             enriched_nodes[node_id] = enriched
 
         return {

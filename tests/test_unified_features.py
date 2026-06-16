@@ -8,8 +8,6 @@ from core.graph.topology_builder import TopologyBuilder
 from core.parser.topology_loader import TopologyLoader
 from core.parser.yaml_parser import YAMLParser
 from core.telemetry.chaos_engine import ChaosEngine
-from ml.isolation_forest import MODEL_LABEL, SyntheticIsolationForest
-from ml.synthetic_injector import SCENARIOS
 from schema.models import TopologyValidationError
 from schema.yaml_validator import load_and_validate
 from simulation.audit import AuditStore
@@ -116,15 +114,6 @@ def test_denied_placement_returns_hard_block_free_alternative():
     assert not result.allowed
     assert result.alternatives
     assert all(item.target != "droplet-1-tor1" for item in result.alternatives)
-
-
-def test_isolation_forest_scores_and_labels_synthetic():
-    model = SyntheticIsolationForest()
-    normal = model.score_one({"cpu_pct": 40, "memory_pct": 50, "temp_c": 45, "power_w": 200, "net_io_mbps": 180})
-    anomalous = model.score_one(SCENARIOS["thermal_spike"])
-    assert 0 <= normal["anomaly_score"] <= 1
-    assert anomalous["anomaly_score"] > normal["anomaly_score"]
-    assert anomalous["anomaly_label"] == MODEL_LABEL
 
 
 def test_report_html_escapes_and_pdf_generates():

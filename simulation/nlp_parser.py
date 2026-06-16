@@ -44,13 +44,9 @@ _RESPONSE_SCHEMA = {
 
 
 def parse_request(text: str, inventory_ids: Iterable[str] = ()) -> SimulationRequest:
-    rule_result = rule_based_parse(text)
-    if rule_result is not None:
-        return rule_result
-    if os.getenv("ENABLE_LLM_PARSER", "false").lower() == "true":
-        llm = _gemini_parse(text, set(inventory_ids))
-        if llm is not None:
-            return llm
+    llm = _gemini_parse(text, set(inventory_ids))
+    if llm is not None:
+        return llm
     return _fallback(text)
 
 

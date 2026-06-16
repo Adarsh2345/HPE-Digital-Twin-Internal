@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>HPE Digital Twin — Simulation Console</title>
+<style>
+  :root {
+    --bg: #0b0e14;
+    --panel: #11151f;
+    --border: #232838;
+    --text: #e6e8ee;
+    --muted: #8b93a7;
+    --accent: #4f8cff;
+    --green: #34d399;
+    --red: #f87171;
+    --yellow: #fbbf24;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+  }
+  header {
+    padding: 20px 28px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  header h1 {
+    font-size: 18px;
+    margin: 0;
+    font-weight: 600;
+  }
+  header .api-url {
+    font-size: 12px;
+    color: var(--muted);
+  }
+  main {
+    max-width: 880px;
+    margin: 0 auto;
+    padding: 28px;
+  }
+  .query-box {
+    display: flex;
+    gap: 10px;
+  }
+  input[type="text"] {
+    flex: 1;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px 16px;
+    color: var(--text);
+    font-size: 15px;
+    outline: none;
+  }
+  input[type="text"]:focus {
+    border-color: var(--accent);
+  }
+  button {
+    background: var(--accent);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    padding: 0 22px;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+  .examples {
+    margin-top: 12px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .example-chip {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    color: var(--muted);
+    border-radius: 999px;
+    padding: 6px 12px;
+    font-size: 12px;
+    cursor: pointer;
+  }
+  .example-chip:hover {
+    border-color: var(--accent);
+    color: var(--text);
+  }
+  #status-line {
+    margin-top: 16px;
+    font-size: 13px;
+    color: var(--muted);
+    min-height: 18px;
+  }
+  .result-card {
+    margin-top: 20px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px 22px;
+    display: none;
+  }
+  .verdict-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 14px;
+  }
+  .verdict-badge {
+    font-size: 13px;
+    font-weight: 700;
+    padding: 5px 14px;
+    border-radius: 999px;
+  }
+  .verdict-allowed { background: rgba(52,211,153,0.15); color: var(--green); }
+  .verdict-denied { background: rgba(248,113,113,0.15); color: var(--red); }
+  .verdict-row .action-name {
+    font-size: 14px;
+    color: var(--muted);
+  }
+  .meta-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+  .meta-cell {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 12px;
+  }
+  .meta-cell .label {
+    font-size: 11px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  .meta-cell .value {
+    font-size: 14px;
+    margin-top: 4px;
+    font-weight: 600;
+  }
+  section.block {
+    margin-top: 16px;
+  }
+  section.block h3 {
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--muted);
+    margin: 0 0 8px 0;
+  }
+  ul.list {
+    margin: 0;
+    padding-left: 18px;
+    font-size: 14px;
+    line-height: 1.6;
+  }
+  ul.list.violations li { color: var(--red); }
+  ul.list.warnings li { color: var(--yellow); }
+  ul.list.recs li { color: var(--green); }
+  .empty-note {
+    font-size: 13px;
+    color: var(--muted);
+  }
+  .source-card {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 14px;
+    margin-bottom: 10px;
+  }
+  .source-card .source-title {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--accent);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .source-card table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+  .source-card table th {
+    text-align: left;
+    color: var(--muted);
+    font-weight: 500;
+    padding: 4px 8px;
+    border-bottom: 1px solid var(--border);
+  }
+  .source-card table td {
+    padding: 4px 8px;
+    border-bottom: 1px solid var(--border);
+  }
+  .source-card table tr:last-child td {
+    border-bottom: none;
+  }
+  .node-label {
+    font-weight: 600;
+    color: var(--text);
+  }
+  .raw-toggle {
+    margin-top: 18px;
+    font-size: 12px;
+    color: var(--accent);
+    cursor: pointer;
+    user-select: none;
+  }
+  pre#raw-json {
+    display: none;
+    margin-top: 10px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px;
+    font-size: 12px;
+    overflow-x: auto;
+    max-height: 400px;
+  }
+  .error-card {
+    margin-top: 20px;
+    background: rgba(248,113,113,0.08);
+    border: 1px solid rgba(248,113,113,0.35);
+    border-radius: 12px;
+    padding: 16px 20px;
+    color: var(--red);
+    font-size: 14px;
+    display: none;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>HPE Digital Twin — Simulation Console</h1>
+  <span class="api-url" id="api-url-label"></span>
+</header>
+
+<main>
+  <div class="query-box">
+    <input type="text" id="query-input" placeholder="e.g. what happens if router-1 fails" autocomplete="off">
+    <button id="run-btn">Run</button>
+  </div>
+
+  <div class="examples">
+    <span class="example-chip" data-q="what happens if router-1 fails">router-1 fails</span>
+    <span class="example-chip" data-q="inject cpu 95 on server-1">inject cpu 95 on server-1</span>
+    <span class="example-chip" data-q="move server-1 to router-2">move server-1 to router-2</span>
+    <span class="example-chip" data-q="add 2 servers to droplet-1-tor1 router-1">add 2 servers</span>
+    <span class="example-chip" data-q="latency 200 between router-1 and server-1">inject latency</span>
+  </div>
+
+  <div id="status-line"></div>
+
+  <div class="error-card" id="error-card"></div>
+
+  <div class="result-card" id="result-card">
+    <div class="verdict-row">
+      <span class="verdict-badge" id="verdict-badge"></span>
+      <span class="action-name" id="action-name"></span>
+    </div>
+
+    <div class="meta-grid">
+      <div class="meta-cell">
+        <div class="label">Parser used</div>
+        <div class="value" id="parser-used">—</div>
+      </div>
+      <div class="meta-cell">
+        <div class="label">Execution time</div>
+        <div class="value" id="exec-time">—</div>
+      </div>
+      <div class="meta-cell">
+        <div class="label">Affected nodes (blast radius)</div>
+        <div class="value" id="blast-count">—</div>
+      </div>
+    </div>
+
+    <section class="block">
+      <h3>Data Sources Used For This Query</h3>
+      <div id="data-sources"></div>
+    </section>
+
+    <section class="block">
+      <h3>Current Violations</h3>
+      <div id="current-violations"></div>
+    </section>
+
+    <section class="block">
+      <h3>Projected Violations (future steps)</h3>
+      <div id="projected-violations"></div>
+    </section>
+
+    <section class="block">
+      <h3>Warnings</h3>
+      <div id="warnings"></div>
+    </section>
+
+    <section class="block">
+      <h3>Recommendations</h3>
+      <div id="recommendations"></div>
+    </section>
+
+    <div class="raw-toggle" id="raw-toggle">Show raw JSON response ▾</div>
+    <pre id="raw-json"></pre>
+  </div>
+</main>
+
+<script>
+const API_BASE = window.location.protocol === "file:"
+  ? "http://localhost:5000"
+  : window.location.origin;
+
+document.getElementById("api-url-label").textContent = API_BASE;
+
+const queryInput = document.getElementById("query-input");
+const runBtn = document.getElementById("run-btn");
+const statusLine = document.getElementById("status-line");
+const errorCard = document.getElementById("error-card");
+const resultCard = document.getElementById("result-card");
+const rawToggle = document.getElementById("raw-toggle");
+const rawJson = document.getElementById("raw-json");
+
+document.querySelectorAll(".example-chip").forEach(chip => {
+  chip.addEventListener("click", () => {
+    queryInput.value = chip.dataset.q;
+    runSimulation();
+  });
+});
+
+queryInput.addEventListener("keydown", (e) => {
+  if (e.key === "Enter") runSimulation();
+});
+runBtn.addEventListener("click", runSimulation);
+
+rawToggle.addEventListener("click", () => {
+  const visible = rawJson.style.display === "block";
+  rawJson.style.display = visible ? "none" : "block";
+  rawToggle.textContent = visible ? "Show raw JSON response ▾" : "Hide raw JSON response ▴";
+});
+
+function setLoading(isLoading) {
+  runBtn.disabled = isLoading;
+  queryInput.disabled = isLoading;
+  statusLine.textContent = isLoading ? "Running simulation..." : "";
+}
+
+function renderList(containerId, items, cssClass, emptyText) {
+  const el = document.getElementById(containerId);
+  if (!items || items.length === 0) {
+    el.innerHTML = `<div class="empty-note">${emptyText}</div>`;
+    return;
+  }
+  const ul = document.createElement("ul");
+  ul.className = "list " + cssClass;
+  items.forEach(item => {
+    const li = document.createElement("li");
+    li.textContent = typeof item === "string" ? item : (item.message || JSON.stringify(item));
+    ul.appendChild(li);
+  });
+  el.innerHTML = "";
+  el.appendChild(ul);
+}
+
+async function runSimulation() {
+  const text = queryInput.value.trim();
+  if (!text) return;
+
+  errorCard.style.display = "none";
+  resultCard.style.display = "none";
+  setLoading(true);
+
+  try {
+    const res = await fetch(`${API_BASE}/api/v1/simulate`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ request_text: text }),
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      const detail = Array.isArray(data.detail)
+        ? data.detail.map(d => d.message || JSON.stringify(d)).join("; ")
+        : (data.detail || "Request failed");
+      errorCard.textContent = detail;
+      errorCard.style.display = "block";
+      return;
+    }
+
+    renderResult(data);
+  } catch (err) {
+    errorCard.textContent = "Could not reach the API. Is the server running at " + API_BASE + "?";
+    errorCard.style.display = "block";
+  } finally {
+    setLoading(false);
+  }
+}
+
+function renderDataSources(data) {
+  const el = document.getElementById("data-sources");
+  const historyByNode = data.historical_context || {};
+  const nodeIds = Object.keys(historyByNode);
+
+  if (nodeIds.length === 0) {
+    el.innerHTML = `<div class="empty-note">This query did not resolve to a specific node, so no live Prometheus or 30-day InfluxDB lookup was performed.</div>`;
+    return;
+  }
+
+  const currentNodes = (data.projected_graph && data.projected_graph.nodes) || [];
+  const currentById = {};
+  currentNodes.forEach(n => { currentById[n.id] = n.metrics || {}; });
+
+  let html = "";
+
+  html += `<div class="source-card">
+    <div class="source-title">📡 Current Snapshot — live from Prometheus</div>
+    <table><tr><th>Node</th><th>CPU %</th><th>Memory %</th><th>Power W</th><th>Disk IOPS</th></tr>`;
+  nodeIds.forEach(nodeId => {
+    const m = currentById[nodeId] || {};
+    html += `<tr>
+      <td class="node-label">${nodeId}</td>
+      <td>${fmt(m.cpu_percent)}</td>
+      <td>${fmt(m.memory_percent)}</td>
+      <td>${fmt(m.power_watts)}</td>
+      <td>${fmt(m.disk_iops)}</td>
+    </tr>`;
+  });
+  html += `</table></div>`;
+
+  html += `<div class="source-card">
+    <div class="source-title">🗄 Last 30 Days — from InfluxDB (p50 / p90 / p95)</div>`;
+  nodeIds.forEach(nodeId => {
+    const profile = historyByNode[nodeId] || {};
+    const fields = Object.keys(profile);
+    if (fields.length === 0) {
+      html += `<div class="empty-note">${nodeId}: no historical data found.</div>`;
+      return;
+    }
+    html += `<table><tr><th>${nodeId}</th><th>p50</th><th>p90</th><th>p95</th><th>max</th><th>samples</th></tr>`;
+    fields.forEach(field => {
+      const p = profile[field];
+      html += `<tr>
+        <td>${field}</td>
+        <td>${fmt(p.p50)}</td>
+        <td>${fmt(p.p90)}</td>
+        <td>${fmt(p.p95)}</td>
+        <td>${fmt(p.max)}</td>
+        <td>${p.samples ?? "—"}</td>
+      </tr>`;
+    });
+    html += `</table>`;
+  });
+  html += `</div>`;
+
+  el.innerHTML = html;
+}
+
+function fmt(value) {
+  return (value === undefined || value === null) ? "—" : value;
+}
+
+function renderResult(data) {
+  const badge = document.getElementById("verdict-badge");
+  badge.textContent = data.verdict;
+  badge.className = "verdict-badge " + (data.allowed ? "verdict-allowed" : "verdict-denied");
+
+  document.getElementById("action-name").textContent = data.action;
+  document.getElementById("parser-used").textContent = data.parser_used;
+  document.getElementById("exec-time").textContent = data.execution_time_ms.toFixed(1) + " ms";
+  document.getElementById("blast-count").textContent =
+    data.blast_radius ? data.blast_radius.affected_count : "—";
+
+  renderDataSources(data);
+  renderList("current-violations", data.current_violations, "violations", "No current violations.");
+  renderList("projected-violations", data.projected_violations, "violations", "No projected violations.");
+  renderList("warnings", data.warnings, "warnings", "No warnings.");
+  renderList("recommendations", data.recommendations, "recs", "No recommendations needed.");
+
+  rawJson.textContent = JSON.stringify(data, null, 2);
+  rawJson.style.display = "none";
+  rawToggle.textContent = "Show raw JSON response ▾";
+
+  resultCard.style.display = "block";
+}
+</script>
+
+</body>
+</html>

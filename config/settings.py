@@ -1,7 +1,10 @@
 import os
 from pathlib import Path
 
+from dotenv import load_dotenv
+
 BASE_DIR = Path(__file__).parent.parent
+load_dotenv(BASE_DIR / ".env")
 
 # Infrastructure
 INFRASTRUCTURE_YAML = os.getenv("INFRASTRUCTURE_YAML", str(BASE_DIR / "infrastructure" / "infrastructure.yaml"))
@@ -22,7 +25,7 @@ NETBOX_URL = os.getenv("NETBOX_URL", "http://localhost:8080")
 NETBOX_TOKEN = os.getenv("NETBOX_TOKEN", "")
 
 # Prometheus
-PROMETHEUS_URL = os.getenv("PROMETHEUS_URL", "http://localhost:9090")
+PROMETHEUS_URL = os.getenv("PROMETHEUS_URL", "http://168.144.91.25:9090")
 
 # Telemetry Loop
 TELEMETRY_INTERVAL_SECONDS = int(os.getenv("TELEMETRY_INTERVAL", 12))
@@ -34,7 +37,7 @@ DEBUG = os.getenv("DEBUG", "true").lower() == "true"
 
 # InfluxDB Configuration
 INFLUXDB_URL = os.getenv("INFLUXDB_URL", "http://localhost:8086")
-INFLUXDB_TOKEN = os.getenv("INFLUXDB_TOKEN", "")
+INFLUXDB_TOKEN = os.getenv("INFLUXDB_TOKEN", "my-super-secret-admin-token-12345")
 INFLUXDB_ORG = os.getenv("INFLUXDB_ORG", "hpe-digital-twin-org")
 INFLUXDB_BUCKET = os.getenv("INFLUXDB_BUCKET", "telemetry_bucket")
 

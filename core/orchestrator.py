@@ -18,6 +18,7 @@ from config.settings import (
     TELEMETRY_INTERVAL_SECONDS,
     REDIS_HOST, REDIS_PORT, REDIS_DB,
     NEO4J_URI, NEO4J_USER, NEO4J_PASSWORD,
+    PROMETHEUS_URL,
 )
 from config.constants import REDIS_KEYS
 from integrations.influxdb.influx_client import InfluxClient
@@ -59,7 +60,7 @@ class Orchestrator:
         from core.telemetry.chaos_engine import ChaosEngine
 
         self.chaos_engine = ChaosEngine()
-        self.scraper = PrometheusScraper()
+        self.scraper = PrometheusScraper(prometheus_url=PROMETHEUS_URL)
         self.processor = TelemetryProcessor()
         self.state_builder = DerivedStateBuilder()
         self.influx_client = InfluxClient() # 🟢 Instantiated cleanly here
@@ -121,16 +122,12 @@ class Orchestrator:
             await asyncio.sleep(TELEMETRY_INTERVAL_SECONDS)
 
     async def _tick(self):
-        from core.telemetry.metrics_generator import MetricsGenerator
-        
         self._tick_count += 1
         self._last_tick = time.time()
 
         nodes = [{"id": n, **self.initial_graph.nodes[n]} for n in self.initial_graph.nodes]
         edges = [{"source": u, "target": v, **self.initial_graph.edges[u, v]} for u, v in self.initial_graph.edges]
 
-        generator = MetricsGenerator(chaos_mode=False)
-        self.scraper.set_generator(generator)
         raw_snapshot = await self.scraper.scrape(nodes, edges)
         raw_snapshot = self.chaos_engine.apply(raw_snapshot, self.initial_graph)
         processed = self.processor.process(raw_snapshot)

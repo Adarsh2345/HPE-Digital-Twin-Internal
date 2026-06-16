@@ -29,6 +29,7 @@ def run_simulation(payload: dict = Body(...)):
                 }],
             )
         result = engine.run(graph, request)
+        result.historical_context = _fetch_historical_context(request, graph)
         audit.save(request, result, render_html(result))
         return result.model_dump(mode="json")
     except ValidationError as exc:
@@ -85,6 +86,20 @@ def list_actions():
             }
             for action, params in specs.items()
         ]
+    }
+
+
+def _fetch_historical_context(request, graph) -> dict:
+    """On-demand 30-day InfluxDB history for the node(s) named in this request."""
+    node_ids = {
+        value for key, value in request.model_dump().items()
+        if key.endswith("_id") and isinstance(value, str) and value in graph
+    }
+    if not node_ids or not orchestrator.influx_client:
+        return {}
+    return {
+        node_id: orchestrator.influx_client.get_node_history(node_id)
+        for node_id in node_ids
     }
 
 

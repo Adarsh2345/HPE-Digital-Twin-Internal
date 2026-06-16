@@ -1,14 +1,21 @@
 """
 integrations/influxdb/influx_client.py
-Handles streaming batch writes of derived node and link infrastructure metrics into InfluxDB.
+Handles streaming batch writes of derived node and link infrastructure metrics into InfluxDB,
+and on-demand historical reads for the simulation pipeline.
 """
 from influxdb_client import InfluxDBClient, Point, WritePrecision
 from influxdb_client.client.write_api import SYNCHRONOUS
 from config.settings import INFLUXDB_URL, INFLUXDB_TOKEN, INFLUXDB_ORG, INFLUXDB_BUCKET
 import logging
 import datetime
+import numpy as np
 
 logger = logging.getLogger(__name__)
+
+NODE_HISTORY_FIELDS = [
+    "cpu_percent", "memory_percent", "disk_iops",
+    "power_watts", "temperature_celsius",
+]
 
 class InfluxClient:
     def __init__(self):
@@ -75,6 +82,47 @@ class InfluxClient:
                 self.write_api.write(bucket=self.bucket, org=self.org, record=points)
             except Exception as e:
                 logger.error(f"Failed to batch write points to InfluxDB: {e}")
+
+    def get_node_history(self, node_id: str, days: int = 30) -> dict:
+        """
+        On-demand fetch of historical percentiles for one node, scoped to the
+        last `days` days. Called only when a simulation request needs it,
+        not on every telemetry tick.
+        """
+        if not self.client:
+            return {}
+
+        flux = f"""
+        from(bucket: "{self.bucket}")
+          |> range(start: -{days}d)
+          |> filter(fn: (r) => r._measurement == "node_telemetry")
+          |> filter(fn: (r) => r.id == "{node_id}")
+        """
+        try:
+            query_api = self.client.query_api()
+            series: dict[str, list[float]] = {}
+            for table in query_api.query(flux):
+                for record in table.records:
+                    field = record.get_field()
+                    if field in NODE_HISTORY_FIELDS:
+                        series.setdefault(field, []).append(float(record.get_value()))
+        except Exception as e:
+            logger.warning(f"InfluxDB history query failed for {node_id}: {e}")
+            return {}
+
+        profile = {}
+        for field, values in series.items():
+            if not values:
+                continue
+            arr = np.array(values, dtype=float)
+            profile[field] = {
+                "p50": round(float(np.percentile(arr, 50)), 2),
+                "p90": round(float(np.percentile(arr, 90)), 2),
+                "p95": round(float(np.percentile(arr, 95)), 2),
+                "max": round(float(arr.max()), 2),
+                "samples": len(arr),
+            }
+        return profile
 
     def close(self):
         if self.client:

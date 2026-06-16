@@ -17,3 +17,4 @@ neo4j>=5.18.0
 influxdb-client>=1.42.0
 # Optional NLP provider; the application remains fully functional without a key.
 google-genai>=1.0.0
+python-dotenv>=1.0.0

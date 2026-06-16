@@ -180,3 +180,4 @@ class SimulationResult(BaseModel):
     projections: list[dict[str, Any]] = Field(default_factory=list)
     projected_graph: dict[str, Any] = Field(default_factory=dict)
     clone_id: str = ""
+    historical_context: dict[str, Any] = Field(default_factory=dict)
