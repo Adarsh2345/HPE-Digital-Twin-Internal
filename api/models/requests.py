@@ -12,10 +12,13 @@ class SimulationRequest(BaseModel):
     action: str = Field(
         ...,
         description=(
-            "Mutation action: "
-            "move_server | add_compute | remove_node | "
-            "inject_compute | inject_network | inject_storage | migrate_rack"
-        ),
+    "Mutation action: "
+    "move_server | add_compute | remove_node | "
+    "inject_compute | inject_network | inject_storage | migrate_rack | "
+    "spine_router_failure | prometheus_failure | grafana_failure | "
+    "neo4j_failure | netbox_failure | "
+    "array_controller_a_failure | array_controller_b_failure | minio_failure"
+),
     )
     params: dict[str, Any] = Field(..., description="Action parameters")
     projection_steps: int = Field(default=3, ge=1, le=10)

@@ -291,6 +291,28 @@ class TopologyMutator:
                 target_droplet=params["target_droplet"],
                 target_router=params["target_router"],
             )
+        elif action == "spine_router_failure":
+            return self.remove_node(G, "spine-router")
 
+        elif action == "prometheus_failure":
+            return self.remove_node(G, "prometheus")
+
+        elif action == "grafana_failure":
+            return self.remove_node(G, "grafana")
+
+        elif action == "neo4j_failure":
+             return self.remove_node(G, "neo4j")
+
+        elif action == "netbox_failure":
+            return self.remove_node(G, "netbox")
+
+        elif action == "array_controller_a_failure":
+           return self.remove_node(G, "array-ctrl-a")
+
+        elif action == "array_controller_b_failure":
+               return self.remove_node(G, "array-ctrl-b")
+
+        elif action == "minio_failure":
+            return self.remove_node(G, "minio")
         else:
             return {"success": False, "error": f"Unknown action: '{action}'"}
