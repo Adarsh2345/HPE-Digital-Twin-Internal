@@ -819,25 +819,30 @@ $('btnCorrNode').addEventListener('click',()=>runSimple('GET','/api/v1/analytics
 $('btnNodeDetail').addEventListener('click',()=>runSimple('GET','/api/v1/topology/node/'+encodeURIComponent($('nodeInspectId').value.trim())));
 
 /* ── SIMULATION ── */
-const SCENARIOS=[
-  {id:'move_server',cat:'topology',title:'Move server',desc:'Move a compute node to a different ToR switch.',
-    fields:[{k:'server_id',l:'Server ID',v:'droplet-1-tor1/server-1'},{k:'target_router_id',l:'Target router ID',v:'droplet-2-tor2/router-2'}]},
-  {id:'add_compute',cat:'topology',title:'Add compute node',desc:'Provision a new blade under a ToR switch.',
-    fields:[{k:'node_id',l:'New node ID',v:'server-5'},{k:'target_router_id',l:'Target router ID',v:'droplet-1-tor1/router-1'},{k:'target_rack_id',l:'Target rack ID',v:'droplet-1-tor1'},{k:'ip',l:'IP (optional)',v:'10.10.1.13'}]},
-  {id:'remove_node',cat:'topology',title:'Remove node',desc:'Decommission an existing node from the topology.',
-    fields:[{k:'node_id',l:'Node ID',v:'droplet-2-tor2/server-4'}]},
-  {id:'migrate_rack',cat:'topology',title:'Rack migration',desc:'Migrate a node to a different physical rack + ToR.',
-    fields:[{k:'node_id',l:'Node ID',v:'droplet-1-tor1/server-1'},{k:'target_rack_id',l:'Target rack',v:'droplet-2-tor2'},{k:'target_router_id',l:'Target router ID',v:'droplet-2-tor2/router-2'}]},
-  {id:'inject_compute',cat:'compute',title:'Inject CPU/memory stress',desc:'Simulate batch job peaks or runaway processes.',
-    fields:[{k:'node_id',l:'Node ID',v:'droplet-1-tor1/server-1'},{k:'cpu_percent',l:'CPU %',v:'92'},{k:'memory_percent',l:'Memory %',v:'88'},{k:'power_watts',l:'Power (W)',v:'310'}]},
-  {id:'inject_network',cat:'network',title:'Inject network degradation',desc:'Simulate BGP path congestion or NIC flap.',
-    fields:[{k:'source_node_id',l:'Source node ID',v:'droplet-3-mgmt/spine-router'},{k:'target_node_id',l:'Target node ID',v:'droplet-1-tor1/router-1'},{k:'latency_ms',l:'Latency (ms)',v:'160'},{k:'packet_loss_percent',l:'Packet loss %',v:'6.5'}]},
-  {id:'inject_storage',cat:'storage',title:'Inject storage IOPS',desc:'Simulate NVMe saturation or heavy DB scans.',
-    fields:[{k:'node_id',l:'Node ID',v:'droplet-1-tor1/server-2'},{k:'disk_iops',l:'Disk IOPS',v:'3900'}]},
-];
-let activeScenario=SCENARIOS[0];
+let SCENARIOS=[];
+let activeScenario=null;
+
+function actionToScenario(a){
+  const fields=Object.keys(a.params||{}).map(k=>({
+    k, l:k, v:a.example&&a.example[k]!=null?String(a.example[k]):''
+  }));
+  return {id:a.action, cat:a.category, title:a.action, desc:a.description, fields};
+}
+
+async function loadScenarios(){
+  const result=await api('GET','/api/v1/simulate/actions');
+  if(result.ok&&result.data&&result.data.actions){
+    SCENARIOS=result.data.actions.map(actionToScenario);
+    activeScenario=SCENARIOS[0]||null;
+    buildScenarios();
+    buildSimParams();
+  } else {
+    $('scenarioGrid').innerHTML='<div class="ln" style="color:var(--red)">Failed to load actions from API</div>';
+  }
+}
 
 function buildScenarios(){
+  if(!activeScenario) return;
   $('scenarioGrid').innerHTML=SCENARIOS.map(s=>`
     <div class="scenario-card ${s.id===activeScenario.id?'sc-active':''}" data-id="${s.id}">
       <div class="sc-cat cat-${s.cat}">${s.cat}</div>
@@ -850,13 +855,15 @@ function buildScenarios(){
   }));
 }
 function buildSimParams(){
+  if(!activeScenario) return;
   $('simParamArea').innerHTML=`<div class="field-grid">${
     activeScenario.fields.map(f=>`<div class="field"><label>${esc(f.l)}</label><input data-key="${esc(f.k)}" value="${esc(f.v)}"/></div>`).join('')
   }<div class="field"><label>Projection steps</label><input id="projSteps" value="3" type="number"/></div></div>`;
 }
-buildScenarios(); buildSimParams();
+loadScenarios();
 
 $('runSimBtn').addEventListener('click',async()=>{
+  if(!activeScenario) return;
   const btn=$('runSimBtn'); const note=$('simRunningNote');
   const params={};
   $$('#simParamArea input[data-key]').forEach(i=>{if(i.value!=='')params[i.dataset.key]=i.value;});

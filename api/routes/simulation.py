@@ -85,7 +85,8 @@ def run_simulation(
                     "params": {"node_id": "droplet-1-tor1/server-1", "target_rack_id": "droplet-2-tor2", "target_router_id": "droplet-2-tor2/router-2"},
                     "projection_steps": 3
                 }
-            }
+            },
+            
         }
     )
 ):

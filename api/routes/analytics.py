@@ -29,7 +29,7 @@ def get_all_profiles():
     }
 
 
-@router.get("/profile/{node_id}")
+@router.get("/profile/{node_id:path}")
 def get_node_profile(node_id: str):
     profile = registry.get_profile(node_id)
     if not profile:
@@ -58,7 +58,7 @@ def get_scenarios():
     }
 
 
-@router.get("/correlations/{node_id}")
+@router.get("/correlations/{node_id:path}")
 def get_correlations(node_id: str):
     profile = registry.get_profile(node_id)
     if not profile:

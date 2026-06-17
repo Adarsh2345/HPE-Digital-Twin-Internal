@@ -64,6 +64,14 @@ app.include_router(reports.router)
 app.include_router(analytics.router)
 app.include_router(metrics_resolve.router)
 
+# Serve production frontend build when available
+from pathlib import Path
+from fastapi.staticfiles import StaticFiles
+
+_frontend_dist = Path(__file__).parent.parent / "frontend" / "dist"
+if _frontend_dist.is_dir():
+    app.mount("/app", StaticFiles(directory=str(_frontend_dist), html=True), name="frontend")
+
 
 @app.get("/", tags=["Root"])
 def root():
