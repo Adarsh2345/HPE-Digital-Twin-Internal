@@ -24,9 +24,7 @@ Copy `.env.example` to `.env`:
 | Variable | Default | Purpose |
 |----------|---------|---------|
 | `VITE_API_BASE_URL` | (empty) | Leave empty in dev — Vite proxies `/api` to :5000 |
-| `VITE_GRAFANA_URL` | `http://localhost:3000` | Grafana iframe embed |
-| `VITE_PROMETHEUS_URL` | `http://localhost:9090` | Sidebar link |
-| `VITE_INFLUXDB_URL` | `http://localhost:8086` | Sidebar link |
+
 
 ## Pages & APIs
 
