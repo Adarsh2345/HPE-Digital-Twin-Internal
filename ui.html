@@ -218,6 +218,30 @@
   .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin .6s linear infinite; }
   @keyframes spin { to { transform: rotate(360deg); } }
 
+  /* ── Anomaly panel ── */
+  .anomaly-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; padding: 16px 20px; overflow-y: auto; }
+  .anomaly-card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 14px; transition: border-color .2s; }
+  .anomaly-card.alert-warning  { border-left: 3px solid var(--warn); }
+  .anomaly-card.alert-critical { border-left: 3px solid var(--danger); }
+  .anomaly-card.alert-normal   { border-left: 3px solid var(--healthy); }
+  .alert-badge { display: inline-block; padding: 2px 9px; border-radius: 10px; font-size: 10px; font-weight: 700; margin-bottom: 8px; }
+  .alert-badge.normal   { background: #1a3a2a; color: var(--healthy); }
+  .alert-badge.warning  { background: #3a2a0a; color: var(--warn); }
+  .alert-badge.critical { background: #3a1a1a; color: var(--danger); }
+  .anomaly-scores { display: flex; gap: 12px; font-size: 10px; color: var(--muted); margin: 6px 0 8px; }
+  .anomaly-scores span { color: var(--text); }
+  .anomaly-reasons { margin: 6px 0; display: flex; flex-wrap: wrap; gap: 4px; }
+  .reason-chip { background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; padding: 2px 8px; font-size: 10px; color: var(--warn); }
+  .anomaly-recs { margin-top: 8px; }
+  .anomaly-recs .rec-item { font-size: 10px; line-height: 1.5; margin-bottom: 4px; }
+  .anomaly-status-bar { display: flex; align-items: center; gap: 16px; padding: 10px 20px; background: var(--surface2); border-bottom: 1px solid var(--border); font-size: 11px; color: var(--muted); }
+  .anomaly-status-bar .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--healthy); flex-shrink: 0; }
+  .anomaly-status-bar .dot.off { background: var(--muted); }
+  /* Inline scan on metric cards */
+  .metric-card { cursor: pointer; }
+  .metric-card:hover { border-color: var(--accent2); }
+  .scan-result { margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--border); font-size: 10px; }
+
   /* ── Empty interface text elements ── */
   .empty { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 60px 20px; color: var(--muted); gap: 8px; }
   .empty .icon { font-size: 32px; opacity: .4; }
@@ -280,6 +304,13 @@
     <div class="nav-item" onclick="openPanel('chaos')" id="nav-chaos">
       <span class="method post">POST</span> /chaos
     </div>
+    <div class="nav-section">Anomaly</div>
+    <div class="nav-item" onclick="openPanel('anomaly')" id="nav-anomaly">
+      <span class="method post">POST</span> /anomaly/detect
+    </div>
+    <div class="nav-item" onclick="openRaw('/api/v1/analytics/anomaly/status','GET')">
+      <span class="method get">GET</span> /anomaly/status
+    </div>
     <div class="nav-section">Reports</div>
     <div class="nav-item" onclick="openRaw('/api/v1/reports/health','GET')">
       <span class="method get">GET</span> /reports/health
@@ -299,6 +330,7 @@
       <div class="tab" id="tab-simulate" onclick="switchTab('simulate')">Simulate</div>
       <div class="tab" id="tab-nlp" onclick="switchTab('nlp')">NLP Resolve</div>
       <div class="tab" id="tab-chaos" onclick="switchTab('chaos')">Chaos</div>
+      <div class="tab" id="tab-anomaly" onclick="switchTab('anomaly')">Anomaly</div>
     </div>
 
     <div class="panel active" id="panel-raw">
@@ -415,6 +447,21 @@
         </div>
       </div>
     </div>
+    <div class="panel" id="panel-anomaly">
+      <div class="request-bar">
+        <span class="method-badge post">POST</span>
+        <span class="endpoint-display">/api/v1/analytics/anomaly/detect/{node_id}</span>
+        <button class="send-btn" onclick="scanAllNodes()" id="scanAllBtn">Scan All Nodes</button>
+        <button class="btn btn-ghost" onclick="loadAnomalyStatus()" style="margin-left:4px">Detector Status</button>
+      </div>
+      <div class="anomaly-status-bar" id="anomalyStatusBar">
+        <div class="dot off" id="anomalyDot"></div>
+        <span id="anomalyStatusText">Loading detector status…</span>
+      </div>
+      <div id="anomalyGrid" class="anomaly-grid">
+        <div class="empty"><div class="icon">🔍</div><div>Click "Scan All Nodes" to run the IF + RF anomaly pipeline</div></div>
+      </div>
+    </div>
   </main>
 </div>
 
@@ -460,6 +507,7 @@ function switchTab(name) {
   currentPanel = name;
   if (name === 'chaos') loadChaosStatus();
   if (name === 'simulate') buildScenarios();
+  if (name === 'anomaly') loadAnomalyStatus();
 }
 
 function openPanel(name) {
@@ -521,6 +569,8 @@ function syntaxHL(json) {
 }
 
 // ── Live Prometheus aggregation telemetry metrics ──────────────────────────────────────────────
+let _lastTelemetryNodes = {};
+
 async function loadMetrics() {
   const grid = $('metricsGrid');
   grid.innerHTML = '<div class="empty"><div class="spinner"></div></div>';
@@ -529,14 +579,18 @@ async function loadMetrics() {
     if (!data || !data.nodes) { grid.innerHTML = '<div class="empty"><div>No data</div></div>'; return; }
     const nodes = Object.entries(data.nodes);
     if (!nodes.length) { grid.innerHTML = '<div class="empty"><div>No nodes found</div></div>'; return; }
+    _lastTelemetryNodes = data.nodes;
     grid.innerHTML = nodes.map(([id, n]) => {
       const cpu = n.metrics?.cpu_percent ?? 0;
       const mem = n.metrics?.memory_percent ?? 0;
       const state = n.state || 'unknown';
       const shortId = id.includes('/') ? id.split('/')[1] : id;
-      return `<div class="metric-card">
+      const safeId = id.replace(/[^a-z0-9]/gi, '_');
+      const anomalyFlag = n.metrics?.anomaly_detected ? '<span style="color:var(--warn);font-size:10px;margin-left:6px">⚠ spike</span>' : '';
+      const metricsJson = JSON.stringify(n.metrics || {}).replace(/"/g, '&quot;');
+      return `<div class="metric-card" onclick="scanThisNode('${id}', ${JSON.stringify(n.metrics || {}).replace(/'/g,"\\'")})" title="Click to run anomaly scan">
         <div class="node-id">${id}</div>
-        <div class="node-name">${shortId}</div>
+        <div class="node-name">${shortId}${anomalyFlag}</div>
         <span class="state-badge state-${state}">${state}</span>
         <div class="bar-row">
           <div class="bar-label"><span>CPU</span><span>${cpu.toFixed(1)}%</span></div>
@@ -546,10 +600,34 @@ async function loadMetrics() {
           <div class="bar-label"><span>MEM</span><span>${mem.toFixed(1)}%</span></div>
           <div class="bar-track"><div class="bar-fill bar-mem" style="width:${Math.min(mem,100)}%"></div></div>
         </div>
+        <div class="scan-result" id="sr-${safeId}" style="display:none"></div>
       </div>`;
     }).join('');
   } catch (e) {
     grid.innerHTML = '<div class="empty"><div style="color:var(--danger)">Error: ' + e.message + '</div></div>';
+  }
+}
+
+async function scanThisNode(nodeId, metrics) {
+  const safeId = nodeId.replace(/[^a-z0-9]/gi, '_');
+  const el = $('sr-' + safeId);
+  if (!el) return;
+  el.style.display = '';
+  el.innerHTML = '<span class="spinner"></span> scanning…';
+  try {
+    const { data } = await api('POST', '/api/v1/analytics/anomaly/detect/' + encodeURIComponent(nodeId), { metrics });
+    if (!data) { el.innerHTML = '<span style="color:var(--muted)">no response</span>'; return; }
+    const lvl = data.alert_level || 'normal';
+    const score = data.anomaly?.if_score != null ? `IF ${data.anomaly.if_score}` : '';
+    const conf  = data.anomaly?.rf_confidence != null ? ` · RF ${(data.anomaly.rf_confidence*100).toFixed(0)}%` : '';
+    const reasons = (data.anomaly?.anomaly_reason || []).join(', ') || '';
+    const recs = (data.recommendations || []);
+    const col = lvl === 'critical' ? 'var(--danger)' : lvl === 'warning' ? 'var(--warn)' : 'var(--healthy)';
+    el.innerHTML = `<div style="color:${col};font-weight:700;font-size:10px;margin-bottom:3px">${lvl.toUpperCase()}${score ? ' · ' + score + conf : ''}</div>` +
+      (reasons ? `<div style="color:var(--warn);font-size:10px">${reasons}</div>` : '') +
+      recs.map(r => `<div style="color:var(--accent);font-size:10px;margin-top:3px">→ ${r}</div>`).join('');
+  } catch(e) {
+    el.innerHTML = `<span style="color:var(--danger);font-size:10px">${e.message}</span>`;
   }
 }
 
@@ -757,6 +835,101 @@ async function disableChaos() {
 function showChaosLog(data) {
   $('chaosLog').style.display = '';
   $('chaosOutput').innerHTML = syntaxHL(JSON.stringify(data, null, 2));
+}
+
+// ── Anomaly Detection Panel ──────────────────────────────────────────────────
+async function loadAnomalyStatus() {
+  try {
+    const { data } = await api('GET', '/api/v1/analytics/anomaly/status');
+    if (!data) return;
+    const trained = data.trained;
+    const n = data.if_devices?.length ?? 0;
+    $('anomalyDot').className = 'dot' + (trained ? '' : ' off');
+    $('anomalyStatusText').textContent = trained
+      ? `Detector ready — ${n} device models (IF + RF) loaded`
+      : 'Detector not trained — run train_models.py first';
+  } catch(e) {
+    $('anomalyStatusText').textContent = 'Could not reach detector: ' + e.message;
+  }
+}
+
+async function scanAllNodes() {
+  const btn = $('scanAllBtn');
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Scanning…';
+  const grid = $('anomalyGrid');
+  grid.innerHTML = '<div class="empty"><div class="spinner"></div><div>Fetching live metrics…</div></div>';
+
+  try {
+    // 1. Get live telemetry for all nodes
+    const { data: tel } = await api('GET', '/api/v1/telemetry');
+    if (!tel || !tel.nodes) { grid.innerHTML = '<div class="empty"><div>No telemetry data</div></div>'; return; }
+    const nodes = Object.entries(tel.nodes);
+    grid.innerHTML = '<div class="empty"><div class="spinner"></div><div>Running anomaly pipeline for ' + nodes.length + ' nodes…</div></div>';
+
+    // 2. Detect in parallel (batched to avoid browser throttling)
+    const results = await Promise.all(nodes.map(async ([nodeId, n]) => {
+      try {
+        const metrics = n.metrics || {};
+        const { data } = await api('POST', '/api/v1/analytics/anomaly/detect/' + encodeURIComponent(nodeId), { metrics });
+        return { nodeId, data };
+      } catch { return { nodeId, data: null }; }
+    }));
+
+    // 3. Sort: critical first, then warning, then normal
+    const order = { critical: 0, warning: 1, normal: 2 };
+    results.sort((a, b) => (order[a.data?.alert_level] ?? 3) - (order[b.data?.alert_level] ?? 3));
+
+    // 4. Render
+    grid.innerHTML = results.map(({ nodeId, data }) => renderAnomalyCard(nodeId, data)).join('');
+
+    const critCount = results.filter(r => r.data?.alert_level === 'critical').length;
+    const warnCount = results.filter(r => r.data?.alert_level === 'warning').length;
+    toast(`Scan complete — ${critCount} critical, ${warnCount} warning`);
+  } catch(e) {
+    grid.innerHTML = `<div class="empty"><div style="color:var(--danger)">Error: ${e.message}</div></div>`;
+  }
+  btn.disabled = false; btn.textContent = 'Scan All Nodes';
+}
+
+function renderAnomalyCard(nodeId, data) {
+  const shortId = nodeId.includes('/') ? nodeId.split('/')[1] : nodeId;
+  const lvl = data?.alert_level || 'normal';
+  const anomaly = data?.anomaly || {};
+  const threshold = data?.threshold || {};
+  const recs = data?.recommendations || [];
+
+  const col = lvl === 'critical' ? 'var(--danger)' : lvl === 'warning' ? 'var(--warn)' : 'var(--healthy)';
+
+  const scoreRow = anomaly.if_score != null
+    ? `<div class="anomaly-scores">
+        IF score <span>${anomaly.if_score}</span>
+        ${anomaly.rf_confidence != null ? `&nbsp;·&nbsp; RF confidence <span>${(anomaly.rf_confidence*100).toFixed(0)}%</span>` : ''}
+        ${anomaly.anomaly_type ? `&nbsp;·&nbsp; type <span>${anomaly.anomaly_type}</span>` : ''}
+       </div>`
+    : '';
+
+  const reasonChips = (anomaly.anomaly_reason || [])
+    .map(r => `<span class="reason-chip">${r}</span>`).join('');
+
+  const triggerChips = (data?.triggers || [])
+    .filter(t => !t.startsWith('if_anomaly'))
+    .map(t => `<span class="reason-chip" style="color:var(--danger)">${t}</span>`).join('');
+
+  const recHtml = recs.length
+    ? `<div class="anomaly-recs">
+        <div style="color:var(--muted);font-size:9px;letter-spacing:1px;text-transform:uppercase;margin-bottom:4px">Recommendations</div>
+        ${recs.map(r => `<div class="rec-item">→ ${r}</div>`).join('')}
+       </div>`
+    : '';
+
+  return `<div class="anomaly-card alert-${lvl}">
+    <div class="node-id" style="margin-bottom:3px">${nodeId}</div>
+    <div style="font-size:13px;font-weight:700;margin-bottom:6px">${shortId}</div>
+    <span class="alert-badge ${lvl}">${lvl.toUpperCase()}</span>
+    ${scoreRow}
+    ${reasonChips || triggerChips ? `<div class="anomaly-reasons">${triggerChips}${reasonChips}</div>` : ''}
+    ${recHtml}
+  </div>`;
 }
 
 // ── Toast notifications ─────────────────────────────────────────────────────
