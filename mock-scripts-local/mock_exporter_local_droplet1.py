@@ -1,11 +1,6 @@
 """
 mock-scripts-local/mock_exporter_local_droplet1.py
 Local per-device exporter for droplet-1-tor1.
-Unlike mock-scripts/mock_exporter_normal_droplet1.py (one droplet-wide gauge,
-deployed and frozen), this emits one labeled metric per device so the
-pipeline can resolve telemetry per node, matching what
-core/telemetry/prometheus_telemetry_adapter.py expects (id/droplet/role
-labels, bare metric names).
 """
 import time
 import random

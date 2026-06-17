@@ -1,7 +1,6 @@
 """
 mock-scripts-local/mock_exporter_local_droplet2.py
 Local per-device exporter for droplet-2-tor2.
-See mock_exporter_local_droplet1.py for rationale.
 """
 import time
 import random

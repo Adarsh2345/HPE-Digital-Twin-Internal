@@ -4,6 +4,7 @@ Pulls historical time-series from InfluxDB for the ML pipeline.
 Falls back to correlated synthetic data when InfluxDB is offline.
 FIXED: Implemented extended connection timeouts and downsampled aggregation intervals.
 """
+
 import logging
 import time as time_mod
 import numpy as np
@@ -18,10 +19,7 @@ from config.settings import (
 
 logger = logging.getLogger(__name__)
 
-COMPUTE_NODES = [
-    "server-1", "server-2", "server-3", "server-4",
-    "array-ctrl-a", "array-ctrl-b",
-]
+COMPUTE_NODES = ["server-1", "server-2", "server-3", "server-4", "array-ctrl-a", "array-ctrl-b"]
 ROUTER_NODES = ["router-1", "router-2", "spine-router", "storage-router"]
 SERVICE_NODES = ["neo4j", "python-app", "netbox"]
 ALL_NODES = COMPUTE_NODES + ROUTER_NODES + SERVICE_NODES
@@ -62,9 +60,9 @@ class HistoryFetcher:
             logger.warning(f"HistoryFetcher: InfluxDB unavailable ({e}) — using synthetic data")
             self._client = None
 
-    # ------------------------------------------------------------------ #
-    # Node series                                                        #
-    # ------------------------------------------------------------------ #
+    # ==================================================================
+    # Node Series Handling
+    # ==================================================================
     def fetch_node_series(self, days: int = 30) -> dict[str, dict]:
         if self._client:
             result = self._influx_node_series(days)
@@ -91,10 +89,12 @@ class HistoryFetcher:
                     nid = rec.values.get("id", "")
                     if nid not in result:
                         result[nid] = {"timestamps": []}
+                    
                     ts = rec.get_time()
                     result[nid]["timestamps"].append(ts.timestamp() if ts else 0)
-                    for m in ["cpu_percent","memory_percent","disk_iops",
-                              "power_watts","temperature_celsius"]:
+                    
+                    metrics_keys = ["cpu_percent", "memory_percent", "disk_iops", "power_watts", "temperature_celsius"]
+                    for m in metrics_keys:
                         v = rec.values.get(m)
                         if v is not None:
                             result[nid].setdefault(m, []).append(float(v))
@@ -106,22 +106,24 @@ class HistoryFetcher:
         for data in result.values():
             ts_list = data.get("timestamps", [])
             data["hour_of_day"] = [float(int(t % 86400 // 3600)) for t in ts_list]
-            data["day_of_week"]  = [float(int((t // 86400) % 7))  for t in ts_list]
+            data["day_of_week"]  = [float(int((t // 86400) % 7)) for t in ts_list]
 
         # Join edge telemetry — add global-mean bandwidth/latency to each node so
         # fetch_flat_matrix_with_time has all 8 features ScenarioGenerator expects.
         try:
             edge_series = self._influx_edge_series(days)
             all_bw  = [d.get("bandwidth_mbps", []) for d in edge_series.values() if d.get("bandwidth_mbps")]
-            all_lat = [d.get("latency_ms", [])     for d in edge_series.values() if d.get("latency_ms")]
+            all_lat = [d.get("latency_ms", []) for d in edge_series.values() if d.get("latency_ms")]
+            
             if all_bw and all_lat:
                 min_len  = min(min(len(s) for s in all_bw), min(len(s) for s in all_lat))
-                mean_bw  = np.mean([s[:min_len] for s in all_bw],  axis=0).tolist()
+                mean_bw  = np.mean([s[:min_len] for s in all_bw], axis=0).tolist()
                 mean_lat = np.mean([s[:min_len] for s in all_lat], axis=0).tolist()
+                
                 for data in result.values():
                     n = len(data.get("timestamps", []))
                     # Align lengths: repeat last value if node series is longer
-                    data["bandwidth_mbps"] = (mean_bw  + [mean_bw[-1]]  * max(0, n - min_len))[:n]
+                    data["bandwidth_mbps"] = (mean_bw + [mean_bw[-1]] * max(0, n - min_len))[:n]
                     data["latency_ms"]     = (mean_lat + [mean_lat[-1]] * max(0, n - min_len))[:n]
         except Exception as e:
             logger.debug(f"Edge join for node series skipped: {e}")
@@ -131,7 +133,7 @@ class HistoryFetcher:
     def _synthetic_node_series(self, days: int) -> dict:
         """Correlated Gaussian synthetic data with day/night patterns."""
         rng = np.random.default_rng(seed=42)
-        interval_s = 300          # 5-minute samples
+        interval_s = 300  # 5-minute samples
         n = min(days * 24 * 12, 8640)
         now_ts = time_mod.time()
         timestamps = [now_ts - (n - i) * interval_s for i in range(n)]
@@ -157,8 +159,7 @@ class HistoryFetcher:
             mem_base = MEMORY_HEALTHY_MEAN + cpu * 0.35
             mem = np.clip(rng.normal(mem_base, MEMORY_HEALTHY_STD, n), 0, 100)
 
-            iops_base = (IOPS_HEALTHY_MEAN * (1.5 if is_storage else 1.0)
-                         + cpu * 25 + night_mask * 1500)
+            iops_base = (IOPS_HEALTHY_MEAN * (1.5 if is_storage else 1.0) + cpu * 25 + night_mask * 1500)
             iops = np.clip(rng.normal(iops_base, IOPS_HEALTHY_STD, n), 0, 10000)
 
             power_base = POWER_PER_NODE_MEAN + cpu * 1.5
@@ -168,17 +169,17 @@ class HistoryFetcher:
             latency = np.clip(rng.normal(LATENCY_HEALTHY_MEAN + bw * 0.01, LATENCY_HEALTHY_STD, n), 0.5, 200)
 
             result[node] = {
-                "timestamps":        timestamps,
-                "cpu_percent":       list(cpu),
-                "memory_percent":    list(mem),
-                "disk_iops":         list(iops),
-                "power_watts":       list(power),
-                "bandwidth_mbps":    list(bw),
-                "latency_ms":        list(latency),
+                "timestamps": timestamps,
+                "cpu_percent": list(cpu),
+                "memory_percent": list(mem),
+                "disk_iops": list(iops),
+                "power_watts": list(power),
+                "bandwidth_mbps": list(bw),
+                "latency_ms": list(latency),
                 "packet_loss_percent": list(np.clip(rng.normal(0.05, 0.02, n), 0, 5)),
                 "temperature_celsius": list(np.clip(rng.normal(45 + cpu * 0.2, 3, n), 25, 90)),
-                "hour_of_day":       list(hour_arr),
-                "day_of_week":       list(day_arr),
+                "hour_of_day": list(hour_arr),
+                "day_of_week": list(day_arr),
             }
         return result
 
@@ -213,10 +214,12 @@ class HistoryFetcher:
                         continue
                     if nid not in result:
                         result[nid] = {"timestamps": []}
+                    
                     ts = rec.get_time()
                     result[nid]["timestamps"].append(ts.timestamp() if ts else 0)
-                    for m in ["cpu_percent", "memory_percent", "disk_iops",
-                              "power_watts", "temperature_celsius"]:
+                    
+                    metrics_keys = ["cpu_percent", "memory_percent", "disk_iops", "power_watts", "temperature_celsius"]
+                    for m in metrics_keys:
                         v = rec.values.get(m)
                         if v is not None:
                             result[nid].setdefault(m, []).append(float(v))
@@ -225,9 +228,9 @@ class HistoryFetcher:
             return {}
         return result
 
-    # ------------------------------------------------------------------ #
-    # Edge series                                                        #
-    # ------------------------------------------------------------------ #
+    # ==================================================================
+    # Edge Series Handling
+    # ==================================================================
     def fetch_edge_series(self, days: int = 30) -> dict[str, dict]:
         if self._client:
             result = self._influx_edge_series(days)
@@ -250,13 +253,14 @@ class HistoryFetcher:
             for table in q_api.query(flux):
                 for rec in table.records:
                     src = rec.values.get("source", "")
-                    src = rec.values.get("source", "")
                     tgt = rec.values.get("target", "")
                     key = f"{src}->{tgt}"
                     if key not in result:
                         result[key] = {"timestamps": []}
+                    
                     ts = rec.get_time()
                     result[key]["timestamps"].append(ts.timestamp() if ts else 0)
+                    
                     for m in ["latency_ms", "packet_loss_percent", "bandwidth_mbps"]:
                         v = rec.values.get(m)
                         if v is not None:
@@ -277,28 +281,30 @@ class HistoryFetcher:
             lat  = np.clip(rng.normal(LATENCY_HEALTHY_MEAN + bw * 0.005, LATENCY_HEALTHY_STD, n), 0.5, 200)
             loss = np.clip(rng.normal(0.05, 0.02, n), 0, 5)
             result[edge_key] = {
-                "timestamps":           timestamps,
-                "latency_ms":           list(lat),
-                "packet_loss_percent":  list(loss),
-                "bandwidth_mbps":       list(bw),
+                "timestamps": timestamps,
+                "latency_ms": list(lat),
+                "packet_loss_percent": list(loss),
+                "bandwidth_mbps": list(bw),
             }
         return result
 
-    # ------------------------------------------------------------------ #
-    # Flat matrix for KMeans                                             #
-    # ------------------------------------------------------------------ #
-    def fetch_flat_matrix_with_time(
-        self, days: int = 30, metrics: list[str] = None
-    ) -> tuple:
-        metrics = metrics or ["cpu_percent", "memory_percent", "disk_iops",
-                              "bandwidth_mbps", "latency_ms", "power_watts",
-                              "hour_of_day", "day_of_week"]
+    # ==================================================================
+    # Flat Processing Interface for ML Pipelines
+    # ==================================================================
+    def fetch_flat_matrix_with_time(self, days: int = 30, metrics: list[str] = None) -> tuple:
+        metrics = metrics or [
+            "cpu_percent", "memory_percent", "disk_iops",
+            "bandwidth_mbps", "latency_ms", "power_watts",
+            "hour_of_day", "day_of_week"
+        ]
         series = self.fetch_node_series(days)
         rows, timestamps = [], []
+        
         for node_id, data in series.items():
             n = min(len(data.get(m, [])) for m in metrics if data.get(m))
             if n < 10:
                 continue
+            
             ts_list = data.get("timestamps", [None] * n)
             for i in range(n):
                 row = []
@@ -313,6 +319,7 @@ class HistoryFetcher:
                 if ok and len(row) == len(metrics):
                     rows.append(row)
                     timestamps.append(ts_list[i] if i < len(ts_list) else None)
+                    
         if not rows:
             return None, []
         return np.array(rows, dtype=float), timestamps

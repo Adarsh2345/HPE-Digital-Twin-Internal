@@ -9,8 +9,7 @@ from prometheus_client import start_http_server, Gauge
 
 PORT = 9103
 DROPLET = "droplet-4-storage"
-print(f"[+] Launching {DROPLET} LOCAL per-device Exporter on port {PORT}...")
-
+print("[+] Launching {} LOCAL per-device Exporter on port {}...".format(DROPLET, PORT))
 DEVICES = [
     {"id": "storage-router", "role": "storage-tor"},
     {"id": "array-ctrl-a", "role": "storage-controller"},
