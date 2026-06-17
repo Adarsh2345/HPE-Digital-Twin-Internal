@@ -67,4 +67,4 @@ pip-delete-this-directory.txt
 .DS_Store
 Thumbs.db
 models/*.pkl
-*.txt
+!models/anomaly_detector.pkl

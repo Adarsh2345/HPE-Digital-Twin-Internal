@@ -18,6 +18,7 @@ class RecommendationEngine:
         validation_result: dict,
         mutation_result: dict = None,
         projections: list[dict] = None,
+        llm_context: dict = None,
     ) -> dict:
         allowed = validation_result.get("allowed", False)
         reasons = validation_result.get("reasons", [])
@@ -26,6 +27,18 @@ class RecommendationEngine:
         recommendations = []
         if not allowed:
             recommendations = generate_remediation(reasons)
+            # Enhance with Gemini when context is provided
+            if llm_context and recommendations:
+                try:
+                    from core.llm.gemini_client import gemini_client
+                    if gemini_client.available:
+                        recommendations = gemini_client.enhance_recommendations(
+                            context=llm_context,
+                            base_recs=recommendations,
+                            action=action,
+                        )
+                except Exception as e:
+                    logger.warning(f"LLM enhancement skipped: {e}")
 
         report = {
             "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),

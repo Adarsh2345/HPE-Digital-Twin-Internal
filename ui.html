@@ -792,7 +792,9 @@ function startPipelineSpinning(type){
 
 /* ── LIVE METRICS ── */
 let liveTimer=null;
+let _lastTelemetryNodes={};
 function renderLive(snap){
+  _lastTelemetryNodes=snap.nodes||{};
   const nodes=Object.entries(snap.nodes||{});
   const edges=Object.entries(snap.edges||{});
   $('nodesTable').querySelector('tbody').innerHTML=nodes.length
@@ -987,6 +989,7 @@ $('scanAllBtn').addEventListener('click',async()=>{
   try{
     const{data:tel}=await api('GET','/api/v1/telemetry');
     if(!tel||!tel.nodes){$('anomalyGrid').innerHTML='<div class="empty-state">No telemetry data.</div>';return;}
+    _lastTelemetryNodes=tel.nodes;
     const nodes=Object.entries(tel.nodes);
     note.textContent=`Scanning ${nodes.length} nodes…`;
     const results=await Promise.all(nodes.map(async([nodeId,n])=>{
@@ -1029,7 +1032,8 @@ function renderAnomalyCard(nodeId,data){
 
 window.rescanCard=async function(nodeId){
   startPipelineSpinning('anomaly');
-  const result=await api('POST','/api/v1/analytics/anomaly/detect/'+encodeURIComponent(nodeId),{metrics:{}});
+  const metrics=(_lastTelemetryNodes[nodeId]||{}).metrics||{};
+  const result=await api('POST','/api/v1/analytics/anomaly/detect/'+encodeURIComponent(nodeId),{metrics});
   showRaw(result);
   if(result.data){ animateAnomalyPipeline(result.data,result.elapsed); toast('Rescanned '+nodeId); }
 };
