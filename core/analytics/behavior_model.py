@@ -180,15 +180,21 @@ class BehaviorModel:
     # ------------------------------------------------------------------ #
     # Persistence                                                          #
     # ------------------------------------------------------------------ #
+    @staticmethod
+    def _safe_name(node_id: str) -> str:
+        # Composite ids ("droplet-1-tor1/server-1") contain "/" which is a
+        # path separator on every OS — replace with "__" for safe filenames.
+        return node_id.replace("/", "__")
+
     def _save_node_models(self, node_id: str):
-        path = os.path.join(MODEL_DIR, f"{node_id}_models.pkl")
+        path = os.path.join(MODEL_DIR, f"{self._safe_name(node_id)}_models.pkl")
         with open(path, "wb") as f:
             pickle.dump(self.models[node_id], f)
 
     def _ensure_loaded(self, node_id: str):
         if node_id in self.models:
             return
-        path = os.path.join(MODEL_DIR, f"{node_id}_models.pkl")
+        path = os.path.join(MODEL_DIR, f"{self._safe_name(node_id)}_models.pkl")
         if os.path.exists(path):
             with open(path, "rb") as f:
                 self.models[node_id] = pickle.load(f)

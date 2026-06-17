@@ -5,10 +5,17 @@ GET  /api/v1/analytics/profile/{node_id}     — single node profile (compute+st
 GET  /api/v1/analytics/edge/{edge_key}       — edge network profile
 GET  /api/v1/analytics/scenarios             — discovered workload scenarios
 GET  /api/v1/analytics/correlations/{node}   — metric correlation pairs
-POST /api/v1/analytics/retrain               — re-run the full pipeline
+POST /api/v1/analytics/retrain               — re-run the full analytics pipeline
+
+GET  /api/v1/analytics/anomaly/status        — detector readiness + device list
+POST /api/v1/analytics/anomaly/train         — train/retrain IF+RF per device
+POST /api/v1/analytics/anomaly/detect/{id}   — score a live snapshot through full alert pipeline
 """
 from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel
 from core.analytics.model_registry import registry
+from core.analytics.anomaly_detector import detector as _ad
+from core.analytics.alert_pipeline   import run_alert_pipeline
 
 router = APIRouter(prefix="/api/v1/analytics", tags=["Analytics"])
 
@@ -70,3 +77,44 @@ def retrain(days: int = 30):
         "scenarios": len(registry.get_scenarios()),
         "best_k":    registry.scenario_gen.best_k,
     }
+
+
+# ------------------------------------------------------------------ #
+# Anomaly detection endpoints                                          #
+# ------------------------------------------------------------------ #
+
+class MetricsPayload(BaseModel):
+    metrics: dict
+
+
+@router.get("/anomaly/status")
+def anomaly_status():
+    return {
+        "trained":     _ad.trained,
+        "if_devices":  list(_ad.if_models.keys()),
+        "rf_devices":  list(_ad.rf_models.keys()),
+        "model_path":  "models/anomaly_detector.pkl",
+    }
+
+
+@router.post("/anomaly/train")
+def anomaly_train(days: int = 7, chaos_snapshots: int = 3000):
+    from core.orchestrator import orchestrator
+    if not getattr(orchestrator, "initial_graph", None):
+        orchestrator.bootstrap()
+    summary = _ad.train(days=days, chaos_snapshots=chaos_snapshots)
+    return {"status": "trained", **summary}
+
+
+@router.post("/anomaly/detect/{node_id:path}")
+def anomaly_detect(node_id: str, payload: MetricsPayload):
+    """
+    Run the full alert pipeline (threshold check + IF/RF) for one node snapshot.
+    node_id should be the composite topology id, e.g. 'droplet-1-tor1/server-1'.
+    """
+    if not _ad.trained:
+        raise HTTPException(
+            status_code=503,
+            detail="Anomaly detector not trained. POST /anomaly/train first.",
+        )
+    return run_alert_pipeline(node_id, payload.metrics)

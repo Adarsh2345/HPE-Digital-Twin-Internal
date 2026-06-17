@@ -20,10 +20,12 @@ class MetricsGenerator:
 
     def generate_node_metrics(self, node: dict) -> dict:
         role = node.get("role", "")
-        if role in (NODE_ROLES["TOR_ROUTER"], NODE_ROLES["SPINE"]):
+        if role in (NODE_ROLES["TOR_ROUTER"], NODE_ROLES["SPINE"], NODE_ROLES["STORAGE_TOR"]):
             return self._router_metrics()
         if role in (NODE_ROLES["NETBOX"], NODE_ROLES["NEO4J"], NODE_ROLES["MIDDLEWARE"]):
             return self._service_metrics()
+        if role in (NODE_ROLES["STORAGE_CONTROLLER"], NODE_ROLES["OBJECT_STORAGE"]):
+            return self._storage_metrics()
         return self._compute_metrics()
 
     def generate_edge_metrics(self, source: str, target: str) -> dict:
@@ -96,6 +98,12 @@ class MetricsGenerator:
         ), 2)
         base["routing_table_entries"] = random.randint(50, 500)
         base["bgp_sessions_active"] = random.randint(1, 8)
+        return base
+
+    def _storage_metrics(self) -> dict:
+        base = self._compute_metrics()
+        if not self.chaos_mode:
+            base["disk_iops"] = round(_gaussian_clamp(1400.0, 250.0, lo=400.0, hi=4000.0))
         return base
 
     def _service_metrics(self) -> dict:

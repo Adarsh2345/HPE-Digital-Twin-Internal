@@ -40,6 +40,16 @@ class ModelRegistry:
         except Exception as e:
             logger.warning(f"  BehaviorModel training failed: {e} — using linear fallback")
 
+        try:
+            from core.analytics.anomaly_detector import detector as _ad
+            loaded = _ad.load()
+            if loaded:
+                logger.info(f"  ✔ AnomalyDetector: loaded {len(_ad.if_models)} device models")
+            else:
+                logger.info("  ℹ AnomalyDetector: no saved model — run train_models.py --anomaly to train")
+        except Exception as e:
+            logger.warning(f"  AnomalyDetector load skipped: {e}")
+
         self._trained = True
         logger.info("ModelRegistry: bootstrap complete")
 

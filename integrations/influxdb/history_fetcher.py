@@ -101,6 +101,31 @@ class HistoryFetcher:
         except Exception as e:
             logger.warning(f"InfluxDB node query failed: {e}")
             return {}
+
+        # Compute time-of-day features from timestamps — needed by ScenarioGenerator
+        for data in result.values():
+            ts_list = data.get("timestamps", [])
+            data["hour_of_day"] = [float(int(t % 86400 // 3600)) for t in ts_list]
+            data["day_of_week"]  = [float(int((t // 86400) % 7))  for t in ts_list]
+
+        # Join edge telemetry — add global-mean bandwidth/latency to each node so
+        # fetch_flat_matrix_with_time has all 8 features ScenarioGenerator expects.
+        try:
+            edge_series = self._influx_edge_series(days)
+            all_bw  = [d.get("bandwidth_mbps", []) for d in edge_series.values() if d.get("bandwidth_mbps")]
+            all_lat = [d.get("latency_ms", [])     for d in edge_series.values() if d.get("latency_ms")]
+            if all_bw and all_lat:
+                min_len  = min(min(len(s) for s in all_bw), min(len(s) for s in all_lat))
+                mean_bw  = np.mean([s[:min_len] for s in all_bw],  axis=0).tolist()
+                mean_lat = np.mean([s[:min_len] for s in all_lat], axis=0).tolist()
+                for data in result.values():
+                    n = len(data.get("timestamps", []))
+                    # Align lengths: repeat last value if node series is longer
+                    data["bandwidth_mbps"] = (mean_bw  + [mean_bw[-1]]  * max(0, n - min_len))[:n]
+                    data["latency_ms"]     = (mean_lat + [mean_lat[-1]] * max(0, n - min_len))[:n]
+        except Exception as e:
+            logger.debug(f"Edge join for node series skipped: {e}")
+
         return result
 
     def _synthetic_node_series(self, days: int) -> dict:
@@ -155,6 +180,49 @@ class HistoryFetcher:
                 "hour_of_day":       list(hour_arr),
                 "day_of_week":       list(day_arr),
             }
+        return result
+
+    def fetch_node_series_raw(self, days: int = 7) -> dict[str, dict]:
+        """
+        Non-aggregated node telemetry for Isolation Forest training.
+        Uses raw 12-second-interval points so training variance matches
+        live single-point readings — avoids the false-anomaly problem
+        that arises when IF is trained on 1h-mean aggregates (which
+        crush std by ~17x, making normal live readings look like outliers).
+        """
+        if self._client:
+            result = self._influx_node_series_raw(days)
+            if result:
+                return result
+        return self._synthetic_node_series(days)
+
+    def _influx_node_series_raw(self, days: int) -> dict:
+        q_api = self._client.query_api()
+        flux = f"""
+        from(bucket: "{INFLUXDB_BUCKET}")
+          |> range(start: -{days}d)
+          |> filter(fn: (r) => r._measurement == "node_telemetry")
+          |> pivot(rowKey:["_time","id"], columnKey:["_field"], valueColumn:"_value")
+        """
+        result: dict[str, dict] = {}
+        try:
+            for table in q_api.query(flux):
+                for rec in table.records:
+                    nid = rec.values.get("id", "")
+                    if not nid:
+                        continue
+                    if nid not in result:
+                        result[nid] = {"timestamps": []}
+                    ts = rec.get_time()
+                    result[nid]["timestamps"].append(ts.timestamp() if ts else 0)
+                    for m in ["cpu_percent", "memory_percent", "disk_iops",
+                              "power_watts", "temperature_celsius"]:
+                        v = rec.values.get(m)
+                        if v is not None:
+                            result[nid].setdefault(m, []).append(float(v))
+        except Exception as e:
+            logger.warning(f"InfluxDB raw node query failed: {e}")
+            return {}
         return result
 
     # ------------------------------------------------------------------ #
