@@ -4,6 +4,7 @@ import Dashboard from './pages/Dashboard'
 import Topology from './pages/Topology'
 import Simulation from './pages/Simulation'
 import Drift from './pages/Drift'
+import PromptAssistant from './pages/PromptAssistant'
 import Analytics from './pages/Analytics'
 import Reports from './pages/Reports'
 
@@ -14,6 +15,7 @@ export default function App() {
         <Route index element={<Dashboard />} />
         <Route path="topology" element={<Topology />} />
         <Route path="simulation" element={<Simulation />} />
+        <Route path="prompt" element={<PromptAssistant />} />
         <Route path="drift" element={<Drift />} />
         <Route path="analytics" element={<Analytics />} />
         <Route path="reports" element={<Reports />} />

@@ -4,12 +4,14 @@ import {
   Network,
   PlayCircle,
   GitCompareArrows,
+  Sparkles,
 } from 'lucide-react'
 
 const navItems = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard, end: true },
   { to: '/topology', label: 'Topology', icon: Network },
   { to: '/simulation', label: 'Simulation', icon: PlayCircle },
+  { to: '/prompt', label: 'Prompt Assistant', icon: Sparkles },
   { to: '/drift', label: 'Drift', icon: GitCompareArrows },
 ]
 

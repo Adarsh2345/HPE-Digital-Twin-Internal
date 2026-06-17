@@ -45,8 +45,8 @@ _RESPONSE_SCHEMA = {
 
 def parse_request(text: str, inventory_ids: Iterable[str] = ()) -> SimulationRequest:
     """
-    Primary entry point. Gemini-only: falls back to blast_radius_query
-    with parser_used=fallback if Gemini fails or is unavailable.
+    Primary entry point. Tries Gemini first, then rule-based patterns,
+    then falls back to blast_radius_query with parser_used=fallback.
     """
     inventory = set(inventory_ids)
 
@@ -54,7 +54,112 @@ def parse_request(text: str, inventory_ids: Iterable[str] = ()) -> SimulationReq
     if llm is not None:
         return llm
 
+    rule = _rule_parse(text, inventory)
+    if rule is not None:
+        return rule
+
     return _fallback(text)
+
+
+def _resolve_id(name: str, inventory: set[str]) -> str | None:
+    """Map a short name (e.g. server-1) to a full topology node id."""
+    if not name:
+        return None
+    if name in inventory:
+        return name
+    short = name.split("/", 1)[-1]
+    matches = [nid for nid in inventory if nid.endswith(f"/{short}") or nid == short]
+    if len(matches) == 1:
+        return matches[0]
+    if len(matches) > 1:
+        # Prefer compute nodes for server-* ambiguity
+        compute = [m for m in matches if "/server-" in m or m.endswith(f"/{short}")]
+        return compute[0] if compute else matches[0]
+    return None
+
+
+def _rule_parse(text: str, inventory: set[str]) -> SimulationRequest | None:
+    """Rule-based parser for common natural-language patterns (no LLM required)."""
+    raw = text.strip()
+    if not raw:
+        return None
+
+    lowered = raw.lower()
+
+    def build(action: str, **fields) -> SimulationRequest | None:
+        resolve_keys = {
+            "server_id", "target_router_id", "source_node_id",
+            "target_node_id", "failed_device_id",
+        }
+        payload: dict = {"action": action, "request_text": text, "parser_used": "rules"}
+        for key, val in fields.items():
+            if val is None:
+                continue
+            if key == "target_rack_id":
+                payload[key] = val
+            elif key == "node_id" and action == "add_compute":
+                payload[key] = val
+            elif key in resolve_keys or key == "node_id":
+                if inventory:
+                    resolved = _resolve_id(str(val), inventory)
+                    if not resolved:
+                        logger.warning("Rule parser could not resolve %s=%s in inventory", key, val)
+                        return None
+                    payload[key] = resolved
+                else:
+                    payload[key] = val
+            else:
+                payload[key] = val
+        try:
+            return normalize_request(payload)
+        except Exception as exc:
+            logger.warning("Rule parser failed to normalize %s: %s", payload, exc)
+            return None
+
+    # move server-1 to router-2
+    if m := re.match(r"move\s+([\w-]+)\s+to\s+([\w-]+)", lowered):
+        server, router = m.group(1), m.group(2)
+        router_id = _resolve_id(router, inventory) if inventory else router
+        rack = router_id.split("/", 1)[0] if router_id and "/" in router_id else None
+        return build("move_server", server_id=server, target_router_id=router, target_rack_id=rack)
+
+    # remove server-4 / remove node-X
+    if m := re.match(r"remove\s+(?:node\s+)?([\w-]+)", lowered):
+        return build("remove_node", node_id=m.group(1))
+
+    # add compute node server-5 to router-1
+    if m := re.match(r"add\s+(?:compute\s+)?(?:node\s+)?([\w-]+)\s+to\s+([\w-]+)", lowered):
+        node, router = m.group(1), m.group(2)
+        router_id = _resolve_id(router, inventory) if inventory else router
+        rack = router_id.split("/", 1)[0] if router_id and "/" in router_id else None
+        return build("add_compute", node_id=node, target_router_id=router, target_rack_id=rack)
+
+    # inject CPU 92% on server-1
+    if m := re.match(r"inject\s+cpu\s+([\d.]+)\s*%?\s+on\s+([\w-]+)", lowered):
+        return build("inject_compute", node_id=m.group(2), cpu_pct=float(m.group(1)))
+
+    # inject compute / memory variants
+    if m := re.match(r"inject\s+(?:compute\s+)?(?:cpu\s+)?([\d.]+)\s*%?\s+(?:cpu\s+)?on\s+([\w-]+)", lowered):
+        return build("inject_compute", node_id=m.group(2), cpu_pct=float(m.group(1)))
+
+    # latency 160ms spine-router to router-1
+    if m := re.match(r"latency\s+([\d.]+)\s*ms\s+([\w-]+)\s+to\s+([\w-]+)", lowered):
+        return build(
+            "inject_network",
+            source_node_id=m.group(2),
+            target_node_id=m.group(3),
+            latency_ms=float(m.group(1)),
+        )
+
+    # 3900 iops on server-2
+    if m := re.match(r"([\d.]+)\s*iops\s+on\s+([\w-]+)", lowered):
+        return build("inject_storage", node_id=m.group(2), disk_iops=float(m.group(1)))
+
+    # inject storage 3900 iops on server-2
+    if m := re.match(r"inject\s+storage\s+([\d.]+)\s*iops\s+on\s+([\w-]+)", lowered):
+        return build("inject_storage", node_id=m.group(2), disk_iops=float(m.group(1)))
+
+    return None
 
 
 def _gemini_parse(text: str, inventory: set[str]) -> SimulationRequest | None:

@@ -33,14 +33,17 @@ def resolve_metrics(payload: dict = Body(...)):
             else normalize_request(payload)
         )
         
-        # Check for unresolvable structural tokens 
-        if request.parser_used == "fallback" or request.action == "blast_radius_query" and request.failed_device_id == "__unresolved__":
+        # Check for unresolvable structural tokens
+        if request.parser_used == "fallback" or (
+            request.action == "blast_radius_query" and request.failed_device_id == "__unresolved__"
+        ):
+            hint = _unresolved_hint(payload.get("request_text", ""))
             raise HTTPException(
                 status_code=422,
                 detail=[{
                     "code": "NLP_REQUEST_UNRESOLVED",
                     "path": "request_text",
-                    "message": "Request text could not be mapped safely or mapped parameters did not match active inventory.",
+                    "message": hint,
                 }],
             )
 
@@ -54,11 +57,13 @@ def resolve_metrics(payload: dict = Body(...)):
         request_dict.pop("parser_used", None)
         request_dict.pop("requested_by", None)
 
+        simulation_params = _remap_simulation_params(request_dict)
+
         # 3. Core Phase 3 Sandbox processing — Isolated Clone mutations
         sim_result = _simulator.run(
             base_graph,
             action=action,
-            params=request_dict,
+            params=simulation_params,
             projection_steps=projection_steps,
         )
 
@@ -102,6 +107,31 @@ def resolve_metrics(payload: dict = Body(...)):
         raise HTTPException(status_code=503, detail=str(exc)) from None
 
 
+def _remap_simulation_params(params: dict) -> dict:
+    """Align API schema keys with mutator parameter names (mirrors simulation.py)."""
+    simulation_params = dict(params)
+    if "target_router_id" in simulation_params:
+        simulation_params["target_router"] = simulation_params["target_router_id"]
+        simulation_params["router_id"] = simulation_params["target_router_id"]
+    if "target_rack_id" in simulation_params:
+        simulation_params["target_droplet"] = simulation_params["target_rack_id"]
+    if "server_id" in simulation_params:
+        simulation_params["server"] = simulation_params["server_id"]
+    if "source_node_id" in simulation_params:
+        simulation_params["source_node"] = simulation_params["source_node_id"]
+    if "target_node_id" in simulation_params:
+        simulation_params["target_node"] = simulation_params["target_node_id"]
+    if "cpu_pct" in simulation_params:
+        simulation_params["cpu_percent"] = simulation_params["cpu_pct"]
+    if "memory_pct" in simulation_params:
+        simulation_params["memory_percent"] = simulation_params["memory_pct"]
+    if "power_w" in simulation_params:
+        simulation_params["power_watts"] = simulation_params["power_w"]
+    if "packet_loss_pct" in simulation_params:
+        simulation_params["packet_loss_percent"] = simulation_params["packet_loss_pct"]
+    return simulation_params
+
+
 def _validation_errors(exc):
     return [{
         "code": item["type"].upper(),
@@ -109,3 +139,28 @@ def _validation_errors(exc):
         "message": item["msg"],
         "value": str(item.get("input", ""))[:200],
     } for item in exc.errors(include_url=False)]
+
+
+_ACTION_HINTS = {
+    "move_server": 'Try: "move server-1 to router-2"',
+    "add_compute": 'Try: "add compute node server-5 to router-1"',
+    "remove_node": 'Try: "remove server-4"',
+    "inject_compute": 'Try: "inject CPU 92% on server-1"',
+    "inject_network": 'Try: "latency 160ms spine-router to router-1"',
+    "inject_storage": 'Try: "3900 iops on server-2"',
+    "migrate_rack": 'Try: "migrate server-1 to droplet-2-tor2 router-2"',
+}
+
+
+def _unresolved_hint(text: str) -> str:
+    normalized = text.strip().lower().replace(" ", "_").replace("-", "_")
+    for action, example in _ACTION_HINTS.items():
+        if normalized == action or normalized == action.replace("_", ""):
+            return (
+                f'"{text}" is an action name, not a full command. '
+                f"Describe the change in plain English with node names. {example}"
+            )
+    return (
+        "Could not parse this request. Use a full natural-language command with node names "
+        '(e.g. "move server-1 to router-2"). Click an example chip below to get started.'
+    )
