@@ -149,13 +149,27 @@ def run_simulation(
 
     validation = _validator.validate(projected_graph, projections)
 
-    # Phase 5: Recommendation report
+    # Phase 5: Recommendation report (with LLM context for FAIL cases)
+    target_node = simulation_params.get("node_id") or simulation_params.get("server_id")
+    target_role = (
+        projected_graph.nodes[target_node].get("role", "compute-node")
+        if target_node and target_node in projected_graph.nodes
+        else "compute-node"
+    )
+    llm_context = {
+        "node_id":     target_node or req.action,
+        "role":        target_role,
+        "metrics":     dict(req.params),
+        "triggers":    validation.get("reasons", []),
+        "alert_level": "critical" if not validation.get("allowed") else "normal",
+    }
     report = _recommender.generate_report(
         action=req.action,
         params=req.params,
         validation_result=validation,
         mutation_result=sim_result["mutation"],
         projections=projections,
+        llm_context=llm_context,
     )
 
     return {

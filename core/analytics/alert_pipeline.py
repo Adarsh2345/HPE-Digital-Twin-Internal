@@ -86,6 +86,18 @@ def run_alert_pipeline(node_id: str, metrics: dict) -> dict:
     recommendations: list[dict] = []
     if alert_level != "normal":
         reasons = _triggers_to_reasons(triggers, node_id)
+
+        # Build LLM context for Gemini-enhanced recommendations
+        llm_context = {
+            "node_id":       node_id,
+            "role":          "compute-node",
+            "metrics":       metrics,
+            "triggers":      triggers,
+            "healthy_stats": detector.healthy_stats.get(node_id, {}),
+            "anomaly_type":  anomaly.get("anomaly_type"),
+            "alert_level":   alert_level,
+        }
+
         report  = _rec.generate_report(
             action="anomaly_alert",
             params=metrics,
@@ -94,6 +106,7 @@ def run_alert_pipeline(node_id: str, metrics: dict) -> dict:
                 "reasons": reasons,
                 "warnings": [],
             },
+            llm_context=llm_context,
         )
         recommendations = report.get("recommendations", [])
         logger.info(
