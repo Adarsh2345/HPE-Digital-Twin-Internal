@@ -127,6 +127,26 @@ def run_simulation(
     # Phase 4: 4-tier validation on projected graph
     projected_graph = dict_to_graph(sim_result["projected_graph"])
     projections = sim_result["projections"]
+
+    # For metric-injection actions, re-stamp the injected values onto the
+    # projected graph before validation.  BehaviorModel.predict() is trained
+    # on healthy baselines and cannot extrapolate extreme inputs — it smooths
+    # injected faults back toward normal, so the validator would never see
+    # the breach without this step.
+    _INJECT_NODE_METRIC_MAP = {
+        "inject_compute": ("node_id", ("cpu_percent", "memory_percent", "power_watts")),
+        "inject_storage": ("node_id", ("disk_iops",)),
+    }
+    if req.action in _INJECT_NODE_METRIC_MAP:
+        _id_key, _metric_keys = _INJECT_NODE_METRIC_MAP[req.action]
+        _target = simulation_params.get(_id_key)
+        if _target and _target in projected_graph.nodes:
+            _m = dict(projected_graph.nodes[_target].get("metrics", {}))
+            for _k in _metric_keys:
+                if _k in req.params:
+                    _m[_k] = float(req.params[_k])
+            projected_graph.nodes[_target]["metrics"] = _m
+
     validation = _validator.validate(projected_graph, projections)
 
     # Phase 5: Recommendation report

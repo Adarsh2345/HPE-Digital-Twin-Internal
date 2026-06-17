@@ -472,6 +472,7 @@ const $ = id => document.getElementById(id);
 let autoRefreshTimer = null;
 let currentPanel = 'raw';
 let selectedScenario = null;
+let _lastSimResult = null;
 
 // ── Base URL ──────────────────────────────────────────────────
 function base() { return $('baseUrl').value.replace(/\/$/, ''); }
@@ -710,52 +711,54 @@ async function runScenario() {
   btn.disabled = false; btn.textContent = 'Run Scenario';
 }
 
-// --- FIXED: Render compliance status results cleanly matching correct backend report parameters ---
+// --- Render simulation result cleanly ---
 function renderSimResult(data, status, ms, targetContainerId) {
   const container = $(targetContainerId);
-  if (!data) { container.innerHTML = '<div class="sim-result">No response payload block returned</div>'; return; }
-  
-  // Resolve mapping bounds whether returned flat or wrapped within sub-reports
-  const allowed = data.allowed !== undefined ? data.allowed : (data.simulation_report ? data.simulation_report.allowed : false);
-  const verdict = data.verdict || (allowed ? 'PASS ✅' : 'FAIL ❌');
-  const violations = data.reasons || (data.simulation_report ? data.simulation_report.reasons : []);
-  const warnings = data.warnings || (data.simulation_report ? data.simulation_report.warnings : []);
-  const recs = data.recommendations || (data.simulation_report ? data.simulation_report.recommendations : []);
-  const cloneId = data.clone_id || '—';
-  const projectionSteps = data.projection_steps || (data.simulation_report ? data.simulation_report.projection_steps : 0);
+  if (!data) { container.innerHTML = '<div class="sim-result">No response</div>'; return; }
+
+  _lastSimResult = data; // store reference — never embed large JSON in onclick
+
+  const allowed = data.allowed !== undefined ? data.allowed : (data.simulation_report?.allowed ?? false);
+  const verdict  = data.verdict || (allowed ? 'PASS ✅' : 'FAIL ❌');
+  const violations = data.reasons || data.simulation_report?.reasons || [];
+  const warnings   = data.warnings || data.simulation_report?.warnings || [];
+  const recs       = data.recommendations || data.simulation_report?.recommendations || [];
+  const cloneId    = data.clone_id || '—';
+  const projSteps  = data.projection_steps ?? data.simulation_report?.projection_steps ?? 0;
 
   let html = `<div class="sim-result">
     <div class="verdict ${allowed ? 'pass' : 'fail'}">${verdict}</div>
-    <div style="color:var(--muted);font-size:11px;margin-bottom:12px">${ms}ms · clone ${cloneId} · ${projectionSteps} projection steps</div>`;
-  
-  if (violations && violations.length) {
+    <div style="color:var(--muted);font-size:11px;margin-bottom:12px">${ms}ms · clone ${cloneId} · ${projSteps} projection steps</div>`;
+
+  if (violations.length) {
     html += `<div class="section-title" style="margin-bottom:6px">Violations (${violations.length})</div>`;
     html += violations.map(v => `<div class="violation-item">${v}</div>`).join('');
   }
-  if (warnings && warnings.length) {
+  if (warnings.length) {
     html += `<div class="section-title" style="margin-top:10px;margin-bottom:6px">Warnings (${warnings.length})</div>`;
     html += warnings.map(w => `<div class="warning-item">${w}</div>`).join('');
   }
-  if (recs && recs.length) {
+  if (recs.length) {
     html += `<div class="section-title" style="margin-top:10px;margin-bottom:6px">Recommendations</div>`;
     html += recs.map(r => `<div class="rec-item">→ ${r}</div>`).join('');
   }
-  if ((!violations || !violations.length) && (!warnings || !warnings.length)) {
+  if (!violations.length && !warnings.length) {
     html += `<div class="rec-item">All constraint tiers cleared — change is safe to apply.</div>`;
   }
-  html += `<div style="margin-top:14px"><button class="btn btn-ghost" onclick="showRawSim(${JSON.stringify(JSON.stringify(data))})">View full JSON</button></div>`;
+  html += `<div style="margin-top:14px"><button class="btn btn-ghost" onclick="showRawSim()">View full JSON</button></div>`;
   html += '</div>';
   container.innerHTML = html;
 }
 
-function showRawSim(jsonStr) {
+function showRawSim() {
+  if (!_lastSimResult) return;
   $('rawBody').value = '';
   $('rawBodyArea').style.display = 'none';
   $('rawMethod').textContent = 'GET';
   $('rawMethod').className = 'method-badge get';
   $('rawEndpoint').textContent = '/api/v1/simulate (last result)';
   $('rawMeta').style.display = 'none';
-  $('rawOutput').innerHTML = syntaxHL(JSON.stringify(JSON.parse(jsonStr), null, 2));
+  $('rawOutput').innerHTML = syntaxHL(JSON.stringify(_lastSimResult, null, 2));
   switchTab('raw');
 }
 
