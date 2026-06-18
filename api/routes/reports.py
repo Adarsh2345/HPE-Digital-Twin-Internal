@@ -50,7 +50,7 @@ def validate_live_state():
     }
 
 
-@router.get("/node/{node_id}")
+@router.get("/node/{node_id:path}")
 def node_report(node_id: str):
     G = orchestrator.get_derived_graph()
     if node_id not in G.nodes:

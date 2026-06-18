@@ -45,8 +45,8 @@ _RESPONSE_SCHEMA = {
 
 def parse_request(text: str, inventory_ids: Iterable[str] = ()) -> SimulationRequest:
     """
-    Primary entry point. Gemini-only: falls back to blast_radius_query
-    with parser_used=fallback if Gemini fails or is unavailable.
+    Primary entry point. Tries Gemini first, then rule-based patterns,
+    then falls back to blast_radius_query with parser_used=fallback.
     """
     inventory = set(inventory_ids)
 
@@ -54,7 +54,120 @@ def parse_request(text: str, inventory_ids: Iterable[str] = ()) -> SimulationReq
     if llm is not None:
         return llm
 
+    ruled = _rule_parse(text, inventory)
+    if ruled is not None:
+        return ruled
+
     return _fallback(text)
+
+
+def _resolve_id(token: str, inventory: set[str]) -> str | None:
+    """Map a short or composite token to a canonical graph node id."""
+    val = token.strip()
+    if not val:
+        return None
+    if val in inventory:
+        return val
+    if "/" in val:
+        val = val.split("/", 1)[1]
+    return next(
+        (nid for nid in inventory if nid == val or nid.endswith(f"/{val}")),
+        None,
+    )
+
+
+def _rule_parse(text: str, inventory: set[str]) -> SimulationRequest | None:
+    """Deterministic regex parser for common prompt patterns (no Gemini required)."""
+    if not inventory:
+        return None
+
+    raw = text.strip()
+    t = raw.lower()
+
+    m = re.match(r"move\s+(\S+)\s+to\s+(\S+)", t)
+    if m:
+        server_id = _resolve_id(m.group(1), inventory)
+        router_id = _resolve_id(m.group(2), inventory)
+        if server_id and router_id:
+            return normalize_request({
+                "action": "move_server",
+                "server_id": server_id,
+                "target_router_id": router_id,
+                "request_text": raw,
+                "parser_used": "rule",
+            })
+
+    m = re.match(r"add\s+compute(?:\s+node)?\s+(\S+)\s+to\s+(\S+)", t)
+    if m:
+        node_id = _resolve_id(m.group(1), inventory)
+        router_id = _resolve_id(m.group(2), inventory)
+        if router_id:
+            payload: dict = {
+                "action": "add_compute",
+                "target_router_id": router_id,
+                "request_text": raw,
+                "parser_used": "rule",
+            }
+            if node_id:
+                payload["node_id"] = node_id
+            return normalize_request(payload)
+
+    m = re.match(r"remove\s+(\S+)", t)
+    if m:
+        node_id = _resolve_id(m.group(1), inventory)
+        if node_id:
+            return normalize_request({
+                "action": "remove_node",
+                "node_id": node_id,
+                "request_text": raw,
+                "parser_used": "rule",
+            })
+
+    m = re.match(
+        r"inject\s+cpu\s+([\d.]+)\s*%?\s+on\s+(\S+)",
+        t,
+    )
+    if m:
+        node_id = _resolve_id(m.group(2), inventory)
+        if node_id:
+            return normalize_request({
+                "action": "inject_compute",
+                "node_id": node_id,
+                "cpu_pct": float(m.group(1)),
+                "request_text": raw,
+                "parser_used": "rule",
+            })
+
+    m = re.match(
+        r"latency\s+([\d.]+)\s*ms\s+(\S+)\s+to\s+(\S+)",
+        t,
+    )
+    if m:
+        source_id = _resolve_id(m.group(2), inventory)
+        target_id = _resolve_id(m.group(3), inventory)
+        if source_id and target_id:
+            return normalize_request({
+                "action": "inject_network",
+                "source_node_id": source_id,
+                "target_node_id": target_id,
+                "latency_ms": float(m.group(1)),
+                "request_text": raw,
+                "parser_used": "rule",
+            })
+
+    m = re.match(r"([\d.]+)\s+iops\s+on\s+(\S+)", t)
+    if m:
+        node_id = _resolve_id(m.group(2), inventory)
+        if node_id:
+            return normalize_request({
+                "action": "inject_storage",
+                "node_id": node_id,
+                "disk_iops": float(m.group(1)),
+                "request_text": raw,
+                "parser_used": "rule",
+            })
+
+    return None
 
 
 def _gemini_parse(text: str, inventory: set[str]) -> SimulationRequest | None:

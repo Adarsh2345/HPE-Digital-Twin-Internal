@@ -1,3 +1,47 @@
+
+
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Vite
+.vite/
+
+# IDE
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Coverage
+coverage/
+
+# TypeScript
+*.tsbuildinfo
+
+# Cache
+.cache/
+.temp/
+.tmp/
+
+# Optional
+frontend/node_modules/
+frontend/dist/
 # ==========================================
 # 1. PYTHON RUNTIME & CACHE BUILDERS
 # ==========================================

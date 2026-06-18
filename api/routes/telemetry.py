@@ -39,7 +39,7 @@ def get_status():
     return orchestrator.get_status()
 
 
-@router.get("/{node_id}")
+@router.get("/{node_id:path}")
 def get_node_telemetry(node_id: str):
     G = orchestrator.get_derived_graph()
     if node_id not in G.nodes:

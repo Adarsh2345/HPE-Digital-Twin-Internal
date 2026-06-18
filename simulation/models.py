@@ -9,7 +9,7 @@ class RequestBase(BaseModel):
     model_config = ConfigDict(extra="forbid")
     projection_steps: int = Field(default=3, ge=1, le=10)
     request_text: str | None = None
-    parser_used: Literal["form", "gemini", "fallback"] = "form"
+    parser_used: Literal["form", "gemini", "rule", "fallback"] = "form"
     requested_by: str | None = None
 
 

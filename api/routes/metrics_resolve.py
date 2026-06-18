@@ -54,26 +54,43 @@ def resolve_metrics(payload: dict = Body(...)):
         request_dict.pop("parser_used", None)
         request_dict.pop("requested_by", None)
 
+        simulation_params = _simulation_params(request_dict)
+
         # 3. Core Phase 3 Sandbox processing — Isolated Clone mutations
         sim_result = _simulator.run(
             base_graph,
             action=action,
-            params=request_dict,
+            params=simulation_params,
             projection_steps=projection_steps,
         )
 
         if not sim_result["success"]:
             raise HTTPException(status_code=400, detail=sim_result["mutation"])
 
-        # 4. Phase 4 Verification — 4-Tier validation loop matching /simulate
+        # 4. Phase 4 Verification — 4-tier validation loop matching /simulate
         projected_graph = dict_to_graph(sim_result["projected_graph"])
         projections = sim_result["projections"]
+
+        _INJECT_NODE_METRIC_MAP = {
+            "inject_compute": ("node_id", ("cpu_percent", "memory_percent", "power_watts")),
+            "inject_storage": ("node_id", ("disk_iops",)),
+        }
+        if action in _INJECT_NODE_METRIC_MAP:
+            id_key, metric_keys = _INJECT_NODE_METRIC_MAP[action]
+            target = simulation_params.get(id_key)
+            if target and target in projected_graph.nodes:
+                metrics = dict(projected_graph.nodes[target].get("metrics", {}))
+                for key in metric_keys:
+                    if key in simulation_params:
+                        metrics[key] = float(simulation_params[key])
+                projected_graph.nodes[target]["metrics"] = metrics
+
         validation = _validator.validate(projected_graph, projections)
 
         # 5. Phase 5 Report Formulation — Remediate failures automatically
         report = _recommender.generate_report(
             action=action,
-            params=request_dict,
+            params=simulation_params,
             validation_result=validation,
             mutation_result=sim_result["mutation"],
             projections=projections,
@@ -100,6 +117,31 @@ def resolve_metrics(payload: dict = Body(...)):
         raise HTTPException(status_code=422, detail=[{"code": "MISSING_FIELD", "path": str(exc), "message": "Required request field is missing"}]) from None
     except RuntimeError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from None
+
+
+def _simulation_params(request_dict: dict) -> dict:
+    """Remap NLP/schema field names to mutator-compatible keys (mirrors simulation.py)."""
+    params = dict(request_dict)
+    if "target_router_id" in params:
+        params["target_router"] = params["target_router_id"]
+        params["router_id"] = params["target_router_id"]
+    if "target_rack_id" in params:
+        params["target_droplet"] = params["target_rack_id"]
+    if "server_id" in params:
+        params["server"] = params["server_id"]
+    if "source_node_id" in params:
+        params["source_node"] = params["source_node_id"]
+    if "target_node_id" in params:
+        params["target_node"] = params["target_node_id"]
+    if "cpu_pct" in params:
+        params["cpu_percent"] = params.pop("cpu_pct")
+    if "memory_pct" in params:
+        params["memory_percent"] = params.pop("memory_pct")
+    if "power_w" in params:
+        params["power_watts"] = params.pop("power_w")
+    if "packet_loss_pct" in params:
+        params["packet_loss_percent"] = params.pop("packet_loss_pct")
+    return params
 
 
 def _validation_errors(exc):
