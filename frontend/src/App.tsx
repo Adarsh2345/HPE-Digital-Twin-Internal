@@ -7,7 +7,7 @@ import Drift from './pages/Drift'
 import PromptAssistant from './pages/PromptAssistant'
 import Analytics from './pages/Analytics'
 import Reports from './pages/Reports'
-
+import AnomalyPage from './pages/Anomaly'
 export default function App() {
   return (
     <Routes>
@@ -17,6 +17,7 @@ export default function App() {
         <Route path="simulation" element={<Simulation />} />
         <Route path="prompt" element={<PromptAssistant />} />
         <Route path="drift" element={<Drift />} />
+        <Route path="anomaly" element={<AnomalyPage />} />
         <Route path="analytics" element={<Analytics />} />
         <Route path="reports" element={<Reports />} />
         <Route path="*" element={<Navigate to="/" replace />} />

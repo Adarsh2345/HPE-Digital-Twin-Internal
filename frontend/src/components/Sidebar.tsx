@@ -5,6 +5,7 @@ import {
   PlayCircle,
   GitCompareArrows,
   Sparkles,
+   ShieldAlert,
 } from 'lucide-react'
 
 const navItems = [
@@ -13,6 +14,7 @@ const navItems = [
   { to: '/simulation', label: 'Simulation', icon: PlayCircle },
   { to: '/prompt', label: 'Prompt Assistant', icon: Sparkles },
   { to: '/drift', label: 'Drift', icon: GitCompareArrows },
+  { to: '/anomaly', label: 'Anomaly Detection', icon: ShieldAlert },
 ]
 
 const stackLinks = [
