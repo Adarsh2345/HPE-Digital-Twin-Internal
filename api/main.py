@@ -5,16 +5,27 @@ Starts the orchestrator bootstrap and 12s telemetry loop on startup.
 """
 import asyncio
 import logging
-import logging.config
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from config.settings import API_HOST, API_PORT, DEBUG
 from config.constants import APP_NAME
 from core.orchestrator import orchestrator
-from api.routes import topology, telemetry, simulation, chaos, reports, impact, history
+from api.routes import (
+    analytics,
+    chaos,
+    history,
+    impact,
+    metrics_resolve,
+    reports,
+    simulation,
+    telemetry,
+    topology,
+)
 
 logging.basicConfig(
     level=logging.DEBUG if DEBUG else logging.INFO,
@@ -43,8 +54,9 @@ app = FastAPI(
     version="1.0.0",
     description=(
         "Config-file-driven Digital Twin Orchestrator for HPE private cloud infrastructure. "
-        "Provides live topology graphs, real-time Prometheus-style telemetry, "
-        "what-if simulation with RCU isolation, and 4-tier constraint validation."
+        "Provides live topology graphs, real-time Prometheus telemetry, "
+        "what-if simulation with RCU isolation, 4-tier constraint validation, "
+        "and NLP request resolution."
     ),
     lifespan=lifespan,
 )
@@ -63,6 +75,13 @@ app.include_router(chaos.router)
 app.include_router(reports.router)
 app.include_router(impact.router)
 app.include_router(history.router)
+app.include_router(analytics.router)
+app.include_router(metrics_resolve.router)
+
+# Serve production frontend build when available
+_frontend_dist = Path(__file__).parent.parent / "frontend" / "dist"
+if _frontend_dist.is_dir():
+    app.mount("/app", StaticFiles(directory=str(_frontend_dist), html=True), name="frontend")
 
 
 @app.get("/", tags=["Root"])
@@ -74,6 +93,7 @@ def root():
         "status": "/api/v1/telemetry/status",
         "topology": "/api/v1/topology",
         "simulate": "/api/v1/simulate",
+        "resolve": "/api/v1/metrics/resolve",
     }
 
 

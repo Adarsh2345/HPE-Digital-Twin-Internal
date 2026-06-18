@@ -5,7 +5,6 @@ DigitalOcean Droplets → physical racks
 Docker containers     → compute blades / routing engines
 """
 from pathlib import Path
-from typing import Any
 import logging
 
 logger = logging.getLogger(__name__)

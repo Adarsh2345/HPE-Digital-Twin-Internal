@@ -137,6 +137,25 @@ def _metric_values(text: str) -> dict:
         match = re.search(pattern, text)
         if match:
             values[key] = float(match.group(1))
+    stripped_ids = re.sub(
+        r"\b(?:droplet|rack|server|router|spine|array-ctrl|obj-node|pdu)-[-\w/]*\b",
+        "",
+        text,
+    )
+    flexible_patterns = {
+        "cpu_pct": r"\bcpu\b[^0-9]*(\d+(?:\.\d+)?)",
+        "memory_pct": r"\bmemory\b[^0-9]*(\d+(?:\.\d+)?)",
+        "temp_c": r"\b(?:temperature|temp)\b[^0-9]*(\d+(?:\.\d+)?)",
+        "power_w": r"\bpower\b[^0-9]*(\d+(?:\.\d+)?)",
+        "latency_ms": r"\blatency\b[^0-9]*(\d+(?:\.\d+)?)",
+        "packet_loss_pct": r"\b(?:packet\s+)?loss\b[^0-9]*(\d+(?:\.\d+)?)",
+    }
+    for key, pattern in flexible_patterns.items():
+        if key in values:
+            continue
+        match = re.search(pattern, stripped_ids)
+        if match:
+            values[key] = float(match.group(1))
     return values
 
 

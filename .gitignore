@@ -1,3 +1,25 @@
+# Frontend
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+
+# React / Vite
+node_modules/
+dist/
+.vite/
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Package manager
+.pnpm-store/
+
+# Build outputs
+frontend/build/
+
+
 # ==========================================
 # 1. PYTHON RUNTIME & CACHE BUILDERS
 # ==========================================
@@ -66,14 +88,13 @@ pip-delete-this-directory.txt
 *.swo
 .DS_Store
 Thumbs.db
-.venv/
-.coverage
-.pytest_cache/
-__pycache__/
-*.pyc
 *.joblib
 *.pdf
 *.sqlite
 *.sqlite3
-.env
 .codex/
+models/*.pkl
+terraform-pipeline/.terraform/
+terraform-pipeline/terraform.tfstate*
+terraform-pipeline/*.tfvars
+·

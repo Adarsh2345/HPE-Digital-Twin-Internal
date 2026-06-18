@@ -2,14 +2,14 @@ import copy
 from pathlib import Path
 
 import networkx as nx
+import numpy as np
 import pytest
 
+from core.analytics.anomaly_detector import DeviceAnomalyDetector
 from core.graph.topology_builder import TopologyBuilder
 from core.parser.topology_loader import TopologyLoader
 from core.parser.yaml_parser import YAMLParser
 from core.telemetry.chaos_engine import ChaosEngine
-from ml.isolation_forest import MODEL_LABEL, SyntheticIsolationForest
-from ml.synthetic_injector import SCENARIOS
 from schema.models import TopologyValidationError
 from schema.yaml_validator import load_and_validate
 from simulation.audit import AuditStore
@@ -118,13 +118,33 @@ def test_denied_placement_returns_hard_block_free_alternative():
     assert all(item.target != "droplet-1-tor1" for item in result.alternatives)
 
 
-def test_isolation_forest_scores_and_labels_synthetic():
-    model = SyntheticIsolationForest()
-    normal = model.score_one({"cpu_pct": 40, "memory_pct": 50, "temp_c": 45, "power_w": 200, "net_io_mbps": 180})
-    anomalous = model.score_one(SCENARIOS["thermal_spike"])
-    assert 0 <= normal["anomaly_score"] <= 1
-    assert anomalous["anomaly_score"] > normal["anomaly_score"]
-    assert anomalous["anomaly_label"] == MODEL_LABEL
+def test_branch_anomaly_detector_flags_synthetic_outlier():
+    detector = DeviceAnomalyDetector()
+    rng = np.random.default_rng(seed=42)
+    healthy = rng.normal(
+        loc=[35, 45, 700, 180, 45],
+        scale=[3, 4, 80, 20, 2],
+        size=(200, 5),
+    )
+    chaos = rng.normal(
+        loc=[95, 92, 5500, 450, 90],
+        scale=[2, 2, 150, 20, 1],
+        size=(200, 5),
+    )
+    detector._train_device("node-a", healthy, chaos)
+
+    normal = detector.detect("node-a", {
+        "cpu_percent": 36, "memory_percent": 44, "disk_iops": 720,
+        "power_watts": 185, "temperature_celsius": 45,
+    })
+    anomalous = detector.detect("node-a", {
+        "cpu_percent": 98, "memory_percent": 93, "disk_iops": 5800,
+        "power_watts": 470, "temperature_celsius": 91,
+    })
+    assert normal["anomaly"] is False
+    assert anomalous["anomaly"] is True
+    assert anomalous["rf_confidence"] is not None
+    assert anomalous["anomaly_reason"]
 
 
 def test_report_html_escapes_and_pdf_generates():
@@ -182,6 +202,17 @@ def test_rule_parser_normalizes_spoken_numeric_ids():
     assert request.action == "move_server"
     assert request.server_id == "server-1"
     assert request.target_router_id == "router-2"
+
+
+def test_rule_parser_extracts_metrics_around_inventory_ids():
+    compute = parse_request("Set CPU on server-1 to 92 and memory to 88")
+    assert compute.action == "inject_compute"
+    assert compute.cpu_pct == 92
+    assert compute.memory_pct == 88
+
+    network = parse_request("Set latency from router-1 to server-1 to 160")
+    assert network.action == "inject_network"
+    assert network.latency_ms == 160
 
 
 def test_empty_target_identifiers_are_rejected():

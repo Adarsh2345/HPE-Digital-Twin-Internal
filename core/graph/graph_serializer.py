@@ -4,7 +4,6 @@ Converts NetworkX graphs to/from JSON-serializable dicts.
 """
 import json
 import networkx as nx
-from typing import Any
 
 
 def graph_to_dict(G: nx.DiGraph) -> dict:

@@ -1,0 +1,102 @@
+#cloud-config
+# cloud-init for droplet-1-tor1
+# Installs Docker, deploys docker-compose.yml, and starts containers
+
+package_update: true
+package_upgrade: false
+
+packages:
+  - apt-transport-https
+  - ca-certificates
+  - curl
+  - gnupg
+  - lsb-release
+
+write_files:
+  - path: /opt/docker-compose/docker-compose.yml
+    permissions: "0644"
+    content: |
+      version: "3.9"
+
+      networks:
+        tor1-net:
+          driver: bridge
+          ipam:
+            config:
+              - subnet: "10.10.1.0/24"
+
+      services:
+        router-1:
+          image: frrouting/frr
+          container_name: router-1
+          cap_add:
+            - NET_ADMIN
+            - SYS_ADMIN
+          networks:
+            tor1-net:
+              ipv4_address: "10.10.1.1"
+          restart: unless-stopped
+          volumes:
+            - /etc/frr:/etc/frr
+
+        server-1:
+          image: ubuntu:24.04
+          container_name: server-1
+          command: sleep infinity
+          networks:
+            tor1-net:
+              ipv4_address: "10.10.1.11"
+          restart: unless-stopped
+          cap_add:
+            - NET_ADMIN
+
+        server-2:
+          image: ubuntu:24.04
+          container_name: server-2
+          command: sleep infinity
+          networks:
+            tor1-net:
+              ipv4_address: "10.10.1.12"
+          restart: unless-stopped
+          cap_add:
+            - NET_ADMIN
+
+        node-exporter:
+          image: prom/node-exporter:latest
+          container_name: node-exporter
+          pid: host
+          network_mode: host
+          restart: unless-stopped
+          volumes:
+            - /proc:/host/proc:ro
+            - /sys:/host/sys:ro
+            - /:/rootfs:ro
+          command:
+            - "--path.procfs=/host/proc"
+            - "--path.sysfs=/host/sys"
+            - "--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)"
+
+        cadvisor:
+          image: gcr.io/cadvisor/cadvisor:latest
+          container_name: cadvisor
+          privileged: true
+          network_mode: host
+          restart: unless-stopped
+          volumes:
+            - /:/rootfs:ro
+            - /var/run:/var/run:ro
+            - /sys:/sys:ro
+            - /var/lib/docker/:/var/lib/docker:ro
+            - /dev/disk/:/dev/disk:ro
+
+runcmd:
+  # Install Docker via official script
+  - curl -fsSL https://get.docker.com | bash
+  - systemctl enable docker
+  - systemctl start docker
+  # Install Docker Compose v2 plugin
+  - mkdir -p /usr/local/lib/docker/cli-plugins
+  - curl -SL "https://github.com/docker/compose/releases/latest/download/docker-compose-linux-x86_64" -o /usr/local/lib/docker/cli-plugins/docker-compose
+  - chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
+  # Start containers
+  - cd /opt/docker-compose && docker compose up -d

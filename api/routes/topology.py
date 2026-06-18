@@ -27,7 +27,7 @@ def get_nodes():
     return [{"id": n, **G.nodes[n]} for n in G.nodes]
 
 
-@router.get("/node/{node_id}")
+@router.get("/node/{node_id:path}")
 def get_node_detail(node_id: str):
     G = orchestrator.get_derived_graph()
     node = get_node(G, node_id)

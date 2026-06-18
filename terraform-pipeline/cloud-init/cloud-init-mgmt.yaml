@@ -1,0 +1,193 @@
+#cloud-config
+# cloud-init for droplet-3-mgmt
+# Installs Docker, deploys docker-compose.yml, and starts containers
+
+package_update: true
+package_upgrade: false
+
+packages:
+  - apt-transport-https
+  - ca-certificates
+  - curl
+  - gnupg
+  - lsb-release
+
+write_files:
+  - path: /opt/prometheus/prometheus.yml
+    permissions: "0644"
+    content: |
+      global:
+        scrape_interval: 15s
+        evaluation_interval: 15s
+
+      scrape_configs:
+        - job_name: "prometheus"
+          static_configs:
+            - targets: ["localhost:9090"]
+
+        - job_name: "node-exporter"
+          static_configs:
+            - targets:
+                - "DROPLET_1_PRIVATE_IP:9100"
+                - "DROPLET_2_PRIVATE_IP:9100"
+                - "DROPLET_3_PRIVATE_IP:9100"
+          labels:
+            droplet: "tor1"
+
+        - job_name: "cadvisor"
+          static_configs:
+            - targets:
+                - "DROPLET_1_PRIVATE_IP:8080"
+                - "DROPLET_2_PRIVATE_IP:8080"
+                - "DROPLET_3_PRIVATE_IP:8080"
+
+  - path: /opt/docker-compose/docker-compose.yml
+    permissions: "0644"
+    content: |
+      version: "3.9"
+
+      networks:
+        mgmt-net:
+          driver: bridge
+          ipam:
+            config:
+              - subnet: "10.10.3.0/24"
+
+      services:
+        spine-router:
+          image: frrouting/frr
+          container_name: spine-router
+          cap_add:
+            - NET_ADMIN
+            - SYS_ADMIN
+          networks:
+            mgmt-net:
+              ipv4_address: "10.10.3.1"
+          restart: unless-stopped
+          volumes:
+            - /etc/frr:/etc/frr
+
+        netbox:
+          image: netboxcommunity/netbox:latest
+          container_name: netbox
+          networks:
+            mgmt-net:
+              ipv4_address: "10.10.3.11"
+          ports:
+            - "8080:8080"
+          restart: unless-stopped
+          environment:
+            - SUPERUSER_NAME=admin
+            - SUPERUSER_EMAIL=admin@hpe-twin.local
+            - SUPERUSER_PASSWORD=admin
+            - ALLOWED_HOSTS=*
+            - DB_HOST=localhost
+            - DB_NAME=netbox
+            - DB_USER=netbox
+            - DB_PASSWORD=netbox
+            - SECRET_KEY=hpe-digital-twin-secret-key-change-in-prod
+
+        neo4j:
+          image: neo4j:latest
+          container_name: neo4j
+          networks:
+            mgmt-net:
+              ipv4_address: "10.10.3.12"
+          ports:
+            - "7474:7474"
+            - "7687:7687"
+          restart: unless-stopped
+          environment:
+            - NEO4J_AUTH=none
+          volumes:
+            - neo4j-data:/data
+
+        python-app:
+          image: python:3.11
+          container_name: python-app
+          command: sleep infinity
+          networks:
+            mgmt-net:
+              ipv4_address: "10.10.3.13"
+          ports:
+            - "5000:5000"
+          restart: unless-stopped
+          volumes:
+            - /opt/python-app:/app
+          working_dir: /app
+
+        prometheus:
+          image: prom/prometheus:latest
+          container_name: prometheus
+          networks:
+            mgmt-net:
+              ipv4_address: "10.10.3.17"
+          ports:
+            - "9090:9090"
+          restart: unless-stopped
+          volumes:
+            - /opt/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+            - prometheus-data:/prometheus
+          command:
+            - "--config.file=/etc/prometheus/prometheus.yml"
+            - "--storage.tsdb.path=/prometheus"
+
+        grafana:
+          image: grafana/grafana:latest
+          container_name: grafana
+          networks:
+            mgmt-net:
+              ipv4_address: "10.10.3.18"
+          ports:
+            - "3000:3000"
+          restart: unless-stopped
+          environment:
+            - GF_SECURITY_ADMIN_USER=admin
+            - GF_SECURITY_ADMIN_PASSWORD=admin
+          volumes:
+            - grafana-data:/var/lib/grafana
+
+        node-exporter:
+          image: prom/node-exporter:latest
+          container_name: node-exporter
+          pid: host
+          network_mode: host
+          restart: unless-stopped
+          volumes:
+            - /proc:/host/proc:ro
+            - /sys:/host/sys:ro
+            - /:/rootfs:ro
+          command:
+            - "--path.procfs=/host/proc"
+            - "--path.sysfs=/host/sys"
+            - "--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)"
+
+        cadvisor:
+          image: gcr.io/cadvisor/cadvisor:latest
+          container_name: cadvisor
+          privileged: true
+          network_mode: host
+          restart: unless-stopped
+          volumes:
+            - /:/rootfs:ro
+            - /var/run:/var/run:ro
+            - /sys:/sys:ro
+            - /var/lib/docker/:/var/lib/docker:ro
+            - /dev/disk/:/dev/disk:ro
+
+      volumes:
+        neo4j-data:
+        prometheus-data:
+        grafana-data:
+
+runcmd:
+  # Install Docker via official script
+  - curl -fsSL https://get.docker.com | bash
+  - systemctl enable docker
+  - systemctl start docker
+  # Install Docker Compose v2 plugin
+  - mkdir -p /usr/local/lib/docker/cli-plugins
+  - curl -SL "https://github.com/docker/compose/releases/latest/download/docker-compose-linux-x86_64" -o /usr/local/lib/docker/cli-plugins/docker-compose
+  - chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
+  # Start containers
+  - cd /opt/docker-compose && docker compose up -d

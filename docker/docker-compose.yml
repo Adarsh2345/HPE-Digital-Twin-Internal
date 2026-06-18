@@ -52,5 +52,55 @@ services:
       retries: 10
       start_period: 5s
 
+  # 🟢 Local per-device telemetry stack — stands in for the real droplet
+  # Prometheus (which only exposes one droplet-wide reading per droplet).
+  # See mock-scripts-local/ for rationale. Point PROMETHEUS_URL at
+  # http://localhost:9090 to use this instead of the real remote instance.
+  mock-exporter-droplet1:
+    build: ../mock-scripts-local
+    container_name: mock-exporter-droplet1
+    command: ["mock_exporter_local_droplet1.py"]
+    ports:
+      - "9100:9100"
+    restart: always
+
+  mock-exporter-droplet2:
+    build: ../mock-scripts-local
+    container_name: mock-exporter-droplet2
+    command: ["mock_exporter_local_droplet2.py"]
+    ports:
+      - "9101:9101"
+    restart: always
+
+  mock-exporter-droplet3:
+    build: ../mock-scripts-local
+    container_name: mock-exporter-droplet3
+    command: ["mock_exporter_local_droplet3.py"]
+    ports:
+      - "9102:9102"
+    restart: always
+
+  mock-exporter-droplet4:
+    build: ../mock-scripts-local
+    container_name: mock-exporter-droplet4
+    command: ["mock_exporter_local_droplet4.py"]
+    ports:
+      - "9103:9103"
+    restart: always
+
+  twin-prometheus-local:
+    image: prom/prometheus
+    container_name: twin-prometheus-local
+    ports:
+      - "9090:9090"
+    volumes:
+      - ../mock-scripts-local/prometheus.local.yml:/etc/prometheus/prometheus.yml
+    depends_on:
+      - mock-exporter-droplet1
+      - mock-exporter-droplet2
+      - mock-exporter-droplet3
+      - mock-exporter-droplet4
+    restart: always
+
 volumes:
   influxdb_data:

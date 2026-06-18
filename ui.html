@@ -1,0 +1,1050 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Digital Twin — Control Plane</title>
+<style>
+:root {
+  --bg: #08090c;
+  --surface: #0d1117;
+  --surface2: #111520;
+  --surface3: #161c28;
+  --border: #1e2535;
+  --border-hi: #2a3548;
+  --text: #d6e4f7;
+  --muted: #5a6a82;
+  --faint: #2e3d52;
+  --accent: #00e5c0;
+  --accent-dim: rgba(0,229,192,.08);
+  --accent-glow: rgba(0,229,192,.25);
+  --blue: #4d9fff;
+  --blue-dim: rgba(77,159,255,.08);
+  --purple: #a78bfa;
+  --orange: #f59e0b;
+  --green: #22c55e;
+  --green-dim: rgba(34,197,94,.1);
+  --red: #f87171;
+  --red-dim: rgba(248,113,113,.1);
+  --warn: #fbbf24;
+  --warn-dim: rgba(251,191,36,.1);
+  --mono: 'JetBrains Mono', 'Fira Code', ui-monospace, monospace;
+  --sans: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', sans-serif;
+  --r: 7px;
+  --r-sm: 5px;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; background: var(--bg); color: var(--text); font-family: var(--sans); font-size: 13px; overflow: hidden; }
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+::selection { background: var(--accent-dim); }
+
+/* TOP BAR */
+.topbar {
+  display: flex; align-items: center; gap: 16px;
+  height: 48px; padding: 0 20px;
+  background: var(--surface); border-bottom: 1px solid var(--border);
+  position: fixed; top: 0; left: 0; right: 0; z-index: 200;
+}
+.logo { font-family: var(--mono); font-size: 13px; font-weight: 700; white-space: nowrap; letter-spacing: -.3px; }
+.logo .slash { color: var(--muted); margin: 0 6px; }
+.logo .sub { color: var(--muted); font-weight: 400; }
+.api-row { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; }
+.api-label { font-family: var(--mono); font-size: 10px; letter-spacing: .8px; color: var(--accent); background: var(--accent-dim); padding: 3px 8px; border-radius: 3px; white-space: nowrap; }
+.api-input { flex: 1; background: var(--bg); border: 1px solid var(--border); color: var(--text); padding: 6px 10px; border-radius: var(--r-sm); font-family: var(--mono); font-size: 12px; min-width: 0; }
+.api-input:focus { outline: none; border-color: var(--border-hi); }
+.health { display: flex; align-items: center; gap: 7px; font-size: 11px; color: var(--muted); white-space: nowrap; }
+.health-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--faint); flex-shrink: 0; transition: background .3s, box-shadow .3s; }
+.health-dot.ok { background: var(--green); box-shadow: 0 0 8px rgba(34,197,94,.4); animation: pls 2s infinite; }
+.health-dot.bad { background: var(--red); }
+@keyframes pls { 0%,100%{opacity:1} 50%{opacity:.5} }
+
+/* ROOT LAYOUT */
+.root { display: flex; height: calc(100vh - 48px); margin-top: 48px; }
+
+/* SIDEBAR */
+.sidebar { width: 220px; flex-shrink: 0; background: var(--surface); border-right: 1px solid var(--border); overflow-y: auto; padding: 14px 0 40px; }
+.nav-sect { font-size: 10px; letter-spacing: 1.2px; text-transform: uppercase; color: var(--faint); padding: 14px 16px 5px; font-weight: 700; }
+.nav-item { display: flex; align-items: center; gap: 9px; padding: 7px 16px; cursor: pointer; color: var(--muted); border-left: 2px solid transparent; transition: color .15s, background .15s; }
+.nav-item:hover { color: var(--text); background: var(--surface2); }
+.nav-item.active { color: var(--accent); border-left-color: var(--accent); background: rgba(0,229,192,.05); }
+.nbadge { display: inline-block; font-family: var(--mono); font-size: 9px; font-weight: 700; padding: 2px 5px; border-radius: 3px; letter-spacing: .5px; white-space: nowrap; }
+.nbadge-get { background: var(--green-dim); color: var(--green); }
+.nbadge-post { background: var(--blue-dim); color: var(--blue); }
+.nav-path { font-family: var(--mono); font-size: 11.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* MAIN AREA */
+.main { flex: 1; display: flex; flex-direction: column; min-width: 0; overflow: hidden; }
+
+/* TABS */
+.tabs { display: flex; background: var(--surface); border-bottom: 1px solid var(--border); padding: 0 20px; flex-shrink: 0; overflow-x: auto; gap: 2px; }
+.tab { padding: 11px 16px; font-size: 12px; color: var(--muted); border-bottom: 2px solid transparent; white-space: nowrap; cursor: pointer; transition: color .15s; }
+.tab:hover { color: var(--text); }
+.tab.active { color: var(--accent); border-bottom-color: var(--accent); font-weight: 600; }
+
+/* SPLIT */
+.split { flex: 1; display: flex; min-height: 0; }
+.content { flex: 1; overflow-y: auto; min-width: 0; }
+.pane { display: none; padding: 20px 24px 60px; }
+.pane.active { display: block; }
+
+/* PIPELINE PANEL */
+.pipeline { width: 360px; flex-shrink: 0; border-left: 1px solid var(--border); background: var(--surface); display: flex; flex-direction: column; }
+.pipe-head { padding: 12px 14px 10px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; }
+.pipe-title { font-family: var(--mono); font-size: 11px; letter-spacing: .5px; color: var(--muted); display: flex; align-items: center; gap: 8px; }
+.pipe-title strong { color: var(--text); font-size: 12px; }
+.pipe-scroll { flex: 1; overflow-y: auto; padding: 12px 12px 40px; }
+.pipe-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 200px; gap: 10px; color: var(--faint); font-size: 12px; text-align: center; }
+.pipe-icon { font-size: 28px; opacity: .3; }
+.pipe-timing { font-size: 10px; font-family: var(--mono); color: var(--muted); padding: 6px 14px 0; min-height: 20px; }
+.pipe-legend { display: flex; flex-wrap: wrap; gap: 10px; padding: 10px 14px; border-top: 1px solid var(--border); }
+.pipe-legend span { font-size: 10px; color: var(--muted); display: flex; align-items: center; gap: 5px; }
+.pipe-legend i { width: 7px; height: 7px; border-radius: 50%; display: inline-block; }
+
+/* STAGE CARDS */
+.stage { border: 1px solid var(--border); border-radius: var(--r); margin-bottom: 6px; overflow: hidden; transition: border-color .2s, box-shadow .2s; }
+.stage-hd { display: flex; align-items: center; gap: 10px; padding: 9px 11px; background: var(--surface2); }
+.stage-ico { width: 26px; height: 26px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; flex-shrink: 0; background: var(--faint); transition: all .2s; }
+.stage-info { flex: 1; min-width: 0; }
+.stage-lbl { font-size: 9px; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); margin-bottom: 2px; }
+.stage-fn { font-family: var(--mono); font-size: 11px; color: var(--text); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.stage-body { padding: 9px 11px; background: var(--bg); font-size: 11px; line-height: 1.65; color: var(--muted); font-family: var(--mono); word-break: break-word; border-top: 1px solid var(--border); }
+.stage-body .ln { margin-bottom: 2px; }
+.stage-body .k { color: var(--muted); margin-right: 6px; }
+.stage-body .v { color: var(--text); }
+.stage-conn { text-align: center; color: var(--faint); font-size: 13px; margin: 2px 0; }
+
+/* state variants */
+.stage.s-pending { border-color: var(--border); }
+.stage.s-pending .stage-ico { background: rgba(46,61,82,.5); color: var(--faint); }
+.stage.s-running { border-color: var(--blue); box-shadow: 0 0 14px rgba(77,159,255,.15); }
+.stage.s-running .stage-ico { background: var(--blue-dim); color: var(--blue); animation: spin .7s linear infinite; }
+.stage.s-done { border-color: var(--border-hi); }
+.stage.s-done .stage-ico { background: var(--green-dim); color: var(--green); }
+.stage.s-failed { border-color: var(--red); }
+.stage.s-failed .stage-ico { background: var(--red-dim); color: var(--red); }
+.stage.s-warn { border-color: var(--warn); }
+.stage.s-warn .stage-ico { background: var(--warn-dim); color: var(--warn); }
+.stage.s-nodata { border-color: var(--border); opacity: .6; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* chips */
+.chip { display: inline-flex; align-items: center; gap: 4px; font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 10px; letter-spacing: .3px; }
+.ch-done { background: var(--green-dim); color: var(--green); }
+.ch-failed { background: var(--red-dim); color: var(--red); }
+.ch-warn { background: var(--warn-dim); color: var(--warn); }
+.ch-running { background: var(--blue-dim); color: var(--blue); }
+.ch-pending { background: rgba(90,106,130,.1); color: var(--muted); }
+.ch-nodata { background: rgba(90,106,130,.1); color: var(--muted); }
+.ch-normal { background: var(--green-dim); color: var(--green); }
+.ch-critical { background: var(--red-dim); color: var(--red); }
+.ch-warning { background: var(--warn-dim); color: var(--warn); }
+
+/* SPINNER */
+.spinner { display: inline-block; width: 12px; height: 12px; border: 2px solid var(--border-hi); border-top-color: var(--blue); border-radius: 50%; animation: spin .6s linear infinite; }
+
+/* GENERAL */
+.section-label { font-size: 10px; letter-spacing: 1.2px; text-transform: uppercase; color: var(--faint); font-weight: 700; margin-bottom: 10px; }
+h2.pg-title { font-size: 15px; font-weight: 700; color: var(--text); margin-bottom: 4px; }
+p.pg-sub { font-size: 12px; color: var(--muted); margin-bottom: 20px; line-height: 1.5; }
+
+.req-bar { display: flex; align-items: center; gap: 10px; margin-bottom: 18px; }
+.req-bar input { flex: 1; background: var(--surface2); border: 1px solid var(--border); color: var(--text); padding: 8px 12px; border-radius: var(--r); font-family: var(--mono); font-size: 12px; }
+
+.btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; border-radius: var(--r); border: none; cursor: pointer; font-family: var(--sans); font-size: 12px; font-weight: 600; transition: all .15s; white-space: nowrap; }
+.btn:disabled { opacity: .45; cursor: not-allowed; }
+.btn-primary { background: var(--accent); color: #041a15; }
+.btn-primary:hover:not(:disabled) { filter: brightness(1.1); }
+.btn-secondary { background: var(--surface3); color: var(--text); border: 1px solid var(--border); }
+.btn-secondary:hover:not(:disabled) { border-color: var(--border-hi); }
+.btn-danger { background: var(--red); color: #1a0808; }
+.btn-ghost { background: transparent; color: var(--muted); border: 1px solid var(--border); }
+.btn-ghost:hover { color: var(--text); border-color: var(--border-hi); }
+.btn-blue { background: var(--blue); color: #04111a; }
+
+.field-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; margin-bottom: 18px; }
+.field { display: flex; flex-direction: column; gap: 5px; }
+.field label { font-size: 11px; color: var(--muted); }
+.field input, .field select { background: var(--surface2); border: 1px solid var(--border); color: var(--text); padding: 8px 10px; border-radius: var(--r); font-family: var(--mono); font-size: 12px; }
+.field input:focus, .field select:focus { outline: none; border-color: var(--border-hi); }
+
+pre.json { background: var(--surface2); border: 1px solid var(--border); border-radius: var(--r); padding: 14px; font-family: var(--mono); font-size: 11.5px; line-height: 1.65; overflow: auto; max-height: 500px; }
+.jk { color: #79c0ff; } .js { color: #a5d6ff; } .jn { color: var(--orange); } .jb { color: var(--accent); } .jl { color: var(--muted); }
+
+.meta { display: flex; gap: 14px; font-size: 11px; color: var(--muted); font-family: var(--mono); margin-bottom: 12px; flex-wrap: wrap; }
+.meta .ok { color: var(--green); } .meta .err { color: var(--red); }
+
+table.dt { width: 100%; border-collapse: collapse; font-size: 12px; margin-bottom: 24px; }
+table.dt th { text-align: left; font-size: 10px; letter-spacing: .8px; text-transform: uppercase; color: var(--faint); padding: 8px 10px; border-bottom: 1px solid var(--border); font-weight: 700; }
+table.dt td { padding: 8px 10px; border-bottom: 1px solid var(--border); font-family: var(--mono); color: var(--text); }
+table.dt tr:hover td { background: var(--surface2); }
+.spill { display: inline-block; font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 10px; }
+.sp-healthy, .sp-active, .sp-normal { background: var(--green-dim); color: var(--green); }
+.sp-warning, .sp-degraded { background: var(--warn-dim); color: var(--warn); }
+.sp-critical, .sp-down { background: var(--red-dim); color: var(--red); }
+.sp-unknown, .sp-offline { background: rgba(90,106,130,.1); color: var(--muted); }
+
+.scenario-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 10px; margin-bottom: 22px; }
+.scenario-card { background: var(--surface2); border: 1px solid var(--border); border-radius: var(--r); padding: 13px 14px; cursor: pointer; transition: border-color .15s; }
+.scenario-card:hover { border-color: var(--border-hi); }
+.scenario-card.sc-active { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+.sc-cat { font-size: 9px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 5px; }
+.cat-topology { color: var(--blue); } .cat-compute { color: var(--orange); } .cat-network { color: var(--purple); } .cat-storage { color: var(--accent); }
+.sc-title { font-size: 13px; font-weight: 700; margin-bottom: 3px; }
+.sc-desc { font-size: 11px; color: var(--muted); line-height: 1.4; }
+
+.verdict-box { margin-top: 20px; background: var(--surface2); border: 1px solid var(--border); border-radius: var(--r); padding: 16px; }
+.verdict-hd { display: flex; align-items: center; gap: 10px; font-size: 20px; font-weight: 800; margin-bottom: 6px; }
+.verdict-hd.pass { color: var(--green); } .verdict-hd.fail { color: var(--red); }
+.verdict-sub { font-size: 11px; color: var(--muted); font-family: var(--mono); margin-bottom: 14px; }
+.verdict-items { display: flex; flex-direction: column; gap: 6px; }
+.viol { background: var(--red-dim); border-left: 3px solid var(--red); padding: 8px 12px; border-radius: 0 var(--r-sm) var(--r-sm) 0; font-size: 12px; line-height: 1.5; }
+.warn-item { background: var(--warn-dim); border-left: 3px solid var(--warn); padding: 8px 12px; border-radius: 0 var(--r-sm) var(--r-sm) 0; font-size: 12px; line-height: 1.5; }
+.rec-item { background: rgba(0,229,192,.06); border-left: 3px solid var(--accent); padding: 8px 12px; border-radius: 0 var(--r-sm) var(--r-sm) 0; font-size: 12px; line-height: 1.5; color: var(--muted); }
+.rec-item strong { color: var(--accent); }
+
+.chaos-bar { display: flex; align-items: center; gap: 14px; background: var(--surface2); border: 1px solid var(--border); border-radius: var(--r); padding: 16px 18px; margin-bottom: 20px; }
+.chaos-dot { width: 14px; height: 14px; border-radius: 50%; background: var(--faint); flex-shrink: 0; transition: all .3s; }
+.chaos-dot.on { background: var(--red); box-shadow: 0 0 12px rgba(248,113,113,.5); animation: pls .8s infinite; }
+.chaos-label { font-size: 15px; font-weight: 700; }
+.chaos-sub { font-size: 11px; color: var(--muted); margin-top: 2px; }
+
+.an-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; margin-top: 16px; }
+.an-card { background: var(--surface2); border: 1px solid var(--border); border-radius: var(--r); padding: 14px; border-left-width: 3px; cursor: pointer; transition: border-color .15s; }
+.an-card:hover { filter: brightness(1.05); }
+.an-card.c-normal { border-left-color: var(--green); }
+.an-card.c-warning { border-left-color: var(--warn); }
+.an-card.c-critical { border-left-color: var(--red); }
+.an-nid { font-size: 10px; color: var(--muted); font-family: var(--mono); margin-bottom: 3px; }
+.an-name { font-size: 13px; font-weight: 700; margin-bottom: 8px; }
+.an-scores { font-size: 10px; color: var(--muted); font-family: var(--mono); margin: 6px 0; display: flex; flex-wrap: wrap; gap: 10px; }
+.an-scores span { color: var(--text); }
+.reason-chip { display: inline-block; font-size: 10px; padding: 2px 8px; border-radius: 10px; background: var(--warn-dim); color: var(--warn); border: 1px solid rgba(251,191,36,.2); margin-right: 4px; margin-bottom: 4px; }
+.an-status-bar { display: flex; align-items: center; gap: 12px; padding: 10px 0 16px; font-size: 11px; color: var(--muted); border-bottom: 1px solid var(--border); margin-bottom: 14px; }
+.an-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); flex-shrink: 0; }
+.an-dot.off { background: var(--muted); }
+
+.nlp-row { display: flex; gap: 8px; margin-bottom: 14px; }
+.nlp-row input { flex: 1; background: var(--surface2); border: 1px solid var(--border); color: var(--text); padding: 10px 14px; border-radius: var(--r); font-family: var(--mono); font-size: 13px; }
+.nlp-row input:focus { outline: none; border-color: var(--accent); }
+.nlp-chips { display: flex; flex-wrap: wrap; gap: 7px; margin-bottom: 20px; }
+.nlp-chip { padding: 5px 12px; border-radius: 20px; border: 1px solid var(--border); color: var(--muted); cursor: pointer; font-size: 11px; font-family: var(--mono); transition: all .15s; background: var(--surface2); }
+.nlp-chip:hover { border-color: var(--accent); color: var(--accent); }
+
+.toolbar { display: flex; gap: 10px; margin-bottom: 18px; flex-wrap: wrap; align-items: center; }
+.empty-state { text-align: center; padding: 40px; color: var(--faint); font-size: 12px; border: 1px dashed var(--border); border-radius: var(--r); }
+.run-note { font-size: 12px; color: var(--blue); display: none; align-items: center; gap: 8px; }
+
+#toast { position: fixed; bottom: 22px; right: 22px; background: var(--surface); border: 1px solid var(--border-hi); border-radius: var(--r); padding: 10px 16px; font-size: 12px; opacity: 0; pointer-events: none; transition: opacity .2s; z-index: 999; }
+#toast.show { opacity: 1; }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="logo">Digital Twin<span class="slash">/</span><span class="sub">Control Plane</span></div>
+  <div class="api-row">
+    <span class="api-label">API</span>
+    <input class="api-input" id="baseUrl" value="http://localhost:5000"/>
+  </div>
+  <div class="health"><div class="health-dot" id="hdot"></div><span id="htxt">checking…</span></div>
+</header>
+
+<div class="root">
+  <nav class="sidebar">
+    <div class="nav-sect">Topology</div>
+    <div class="nav-item active" data-tab="response" data-method="GET" data-path="/api/v1/topology"><span class="nbadge nbadge-get">GET</span><span class="nav-path">/topology</span></div>
+    <div class="nav-item" data-tab="response" data-method="GET" data-path="/api/v1/topology/nodes"><span class="nbadge nbadge-get">GET</span><span class="nav-path">/topology/nodes</span></div>
+    <div class="nav-item" data-tab="response" data-method="GET" data-path="/api/v1/topology/edges"><span class="nbadge nbadge-get">GET</span><span class="nav-path">/topology/edges</span></div>
+    <div class="nav-item" data-tab="live" data-method="GET" data-path="/api/v1/telemetry"><span class="nbadge nbadge-get">GET</span><span class="nav-path">/telemetry</span></div>
+    <div class="nav-item" data-tab="response" data-method="GET" data-path="/api/v1/telemetry/status"><span class="nbadge nbadge-get">GET</span><span class="nav-path">/telemetry/status</span></div>
+    <div class="nav-sect">Simulation</div>
+    <div class="nav-item" data-tab="simulate"><span class="nbadge nbadge-post">POST</span><span class="nav-path">/simulate</span></div>
+    <div class="nav-item" data-tab="response" data-method="GET" data-path="/api/v1/simulate/actions"><span class="nbadge nbadge-get">GET</span><span class="nav-path">/simulate/actions</span></div>
+    <div class="nav-sect">Analytics</div>
+    <div class="nav-item" data-tab="response" data-method="GET" data-path="/api/v1/analytics/profiles"><span class="nbadge nbadge-get">GET</span><span class="nav-path">/analytics/profiles</span></div>
+    <div class="nav-item" data-tab="response" data-method="GET" data-path="/api/v1/analytics/scenarios"><span class="nbadge nbadge-get">GET</span><span class="nav-path">/analytics/scenarios</span></div>
+    <div class="nav-item" data-tab="response" data-method="POST" data-path="/api/v1/analytics/retrain" data-body="{}"><span class="nbadge nbadge-post">POST</span><span class="nav-path">/analytics/retrain</span></div>
+    <div class="nav-sect">NLP</div>
+    <div class="nav-item" data-tab="nlp"><span class="nbadge nbadge-post">POST</span><span class="nav-path">/metrics/resolve</span></div>
+    <div class="nav-sect">Chaos</div>
+    <div class="nav-item" data-tab="chaos"><span class="nbadge nbadge-post">POST</span><span class="nav-path">/chaos/enable</span></div>
+    <div class="nav-item" data-tab="response" data-method="GET" data-path="/api/v1/chaos/status"><span class="nbadge nbadge-get">GET</span><span class="nav-path">/chaos/status</span></div>
+    <div class="nav-sect">Anomaly</div>
+    <div class="nav-item" data-tab="anomaly"><span class="nbadge nbadge-post">POST</span><span class="nav-path">/anomaly/detect</span></div>
+    <div class="nav-item" data-tab="response" data-method="GET" data-path="/api/v1/analytics/anomaly/status"><span class="nbadge nbadge-get">GET</span><span class="nav-path">/anomaly/status</span></div>
+    <div class="nav-sect">Reports</div>
+    <div class="nav-item" data-tab="response" data-method="GET" data-path="/api/v1/reports/health"><span class="nbadge nbadge-get">GET</span><span class="nav-path">/reports/health</span></div>
+    <div class="nav-item" data-tab="response" data-method="GET" data-path="/api/v1/reports/validate"><span class="nbadge nbadge-get">GET</span><span class="nav-path">/reports/validate</span></div>
+    <div class="nav-item" data-tab="response" data-method="GET" data-path="/api/v1/reports/summary"><span class="nbadge nbadge-get">GET</span><span class="nav-path">/reports/summary</span></div>
+  </nav>
+
+  <main class="main">
+    <div class="tabs">
+      <div class="tab active" data-tab="response">Response</div>
+      <div class="tab" data-tab="live">Live Metrics</div>
+      <div class="tab" data-tab="simulate">Simulate</div>
+      <div class="tab" data-tab="nlp">NLP Resolve</div>
+      <div class="tab" data-tab="chaos">Chaos</div>
+      <div class="tab" data-tab="anomaly">Anomaly</div>
+      <div class="tab" data-tab="reports">Reports</div>
+    </div>
+
+    <div class="split">
+      <div class="content">
+
+        <!-- RESPONSE -->
+        <div class="pane active" id="pane-response">
+          <div class="req-bar"><input id="reqLine" value="— select an endpoint —" readonly/></div>
+          <div class="meta" id="respMeta"></div>
+          <pre class="json" id="respJson" style="color:var(--muted)">// Select an endpoint from the sidebar or tabs above.</pre>
+        </div>
+
+        <!-- LIVE METRICS -->
+        <div class="pane" id="pane-live">
+          <h2 class="pg-title">Live Telemetry</h2>
+          <p class="pg-sub">Polls <code style="color:var(--text)">GET /api/v1/telemetry</code> on an interval — mirrors the 12s orchestrator tick.</p>
+          <div class="toolbar">
+            <button class="btn btn-primary" id="liveToggleBtn">Start polling</button>
+            <button class="btn btn-secondary" id="liveRefreshBtn">Refresh now</button>
+            <div class="field" style="width:120px;margin:0;"><label>Interval (ms)</label><input id="liveInterval" value="4000" type="number"/></div>
+            <span id="liveStamp" style="font-size:11px;color:var(--muted);font-family:var(--mono);"></span>
+          </div>
+          <div class="field-grid" style="margin-bottom:14px;">
+            <div class="field"><label>Node ID for single lookups</label><input id="nodeInspectId" value="droplet-1-tor1/server-1"/></div>
+            <div style="display:flex;align-items:flex-end;gap:8px;flex-wrap:wrap;">
+              <button class="btn btn-secondary" id="btnTelNode">Telemetry</button>
+              <button class="btn btn-secondary" id="btnProfileNode">Profile</button>
+              <button class="btn btn-secondary" id="btnCorrNode">Correlations</button>
+              <button class="btn btn-secondary" id="btnNodeDetail">Detail</button>
+            </div>
+          </div>
+          <div class="section-label">Nodes</div>
+          <table class="dt" id="nodesTable">
+            <thead><tr><th>Node</th><th>Role</th><th>State</th><th>CPU%</th><th>Mem%</th><th>IOPS</th><th>Power W</th><th>Anomaly</th></tr></thead>
+            <tbody><tr><td colspan="8" style="color:var(--muted)">No data — refresh to load.</td></tr></tbody>
+          </table>
+          <div class="section-label">Edges</div>
+          <table class="dt" id="edgesTable">
+            <thead><tr><th>Edge</th><th>State</th><th>Latency ms</th><th>Pkt loss %</th><th>BW Mbps</th></tr></thead>
+            <tbody><tr><td colspan="5" style="color:var(--muted)">No data.</td></tr></tbody>
+          </table>
+        </div>
+
+        <!-- SIMULATE -->
+        <div class="pane" id="pane-simulate">
+          <h2 class="pg-title">Simulation</h2>
+          <p class="pg-sub">Pick a scenario, configure parameters, and run. The pipeline panel will animate each backend phase live as the request progresses.</p>
+          <div class="section-label">Scenario</div>
+          <div class="scenario-grid" id="scenarioGrid"></div>
+          <div id="simParamArea"></div>
+          <div class="toolbar">
+            <button class="btn btn-primary" id="runSimBtn">&#9654; Run Simulation</button>
+            <span class="run-note" id="simRunningNote"><span class="spinner"></span> Simulation running…</span>
+          </div>
+          <div id="simVerdict"></div>
+        </div>
+
+        <!-- NLP -->
+        <div class="pane" id="pane-nlp">
+          <h2 class="pg-title">NLP Resolve</h2>
+          <p class="pg-sub">Natural-language intent parsing feeds directly into the full simulation pipeline. The pipeline panel animates live alongside the result.</p>
+          <div class="nlp-row">
+            <input id="nlpInput" placeholder="e.g. move server-1 to router-2" onkeydown="if(event.key==='Enter')sendNLP()"/>
+            <button class="btn btn-primary" id="nlpBtn">Resolve</button>
+          </div>
+          <div class="section-label">Examples</div>
+          <div class="nlp-chips">
+            <div class="nlp-chip" onclick="setNLP(this)">move server-1 to router-2</div>
+            <div class="nlp-chip" onclick="setNLP(this)">add compute node server-5 to router-1</div>
+            <div class="nlp-chip" onclick="setNLP(this)">remove server-4</div>
+            <div class="nlp-chip" onclick="setNLP(this)">inject CPU 92% on server-1</div>
+            <div class="nlp-chip" onclick="setNLP(this)">latency 160ms spine-router to router-1</div>
+            <div class="nlp-chip" onclick="setNLP(this)">3900 iops on server-2</div>
+            <div class="nlp-chip" onclick="setNLP(this)">migrate rack server-1 to droplet-2-tor2</div>
+          </div>
+          <div id="nlpResult"></div>
+        </div>
+
+        <!-- CHAOS -->
+        <div class="pane" id="pane-chaos">
+          <h2 class="pg-title">Chaos Engine</h2>
+          <p class="pg-sub">Toggles synthetic strain on the telemetry generator. Enable chaos and re-run simulations to observe cascading effects in the pipeline.</p>
+          <div class="chaos-bar" id="chaosBar">
+            <div class="chaos-dot" id="chaosDot"></div>
+            <div>
+              <div class="chaos-label" id="chaosLabel">Checking…</div>
+              <div class="chaos-sub" id="chaosSub">Loading chaos status</div>
+            </div>
+          </div>
+          <div class="field-grid">
+            <div class="field"><label>Scenario</label>
+              <select id="chaosScenario">
+                <option value="full">full — all dimensions</option>
+                <option value="compute">compute — CPU + memory</option>
+                <option value="network">network — latency + packet loss</option>
+                <option value="storage">storage — IOPS saturation</option>
+                <option value="thermal_rise">thermal_rise</option>
+                <option value="pdu_failure">pdu_failure</option>
+                <option value="tor_failure">tor_failure</option>
+                <option value="storage_controller_failure">storage_controller_failure</option>
+              </select>
+            </div>
+            <div class="field"><label>Target nodes (blank = all)</label><input id="chaosNodes" placeholder="droplet-1-tor1/server-1, …"/></div>
+          </div>
+          <div class="toolbar">
+            <button class="btn btn-primary" id="chaosEnableBtn">🔥 Enable chaos</button>
+            <button class="btn btn-danger" id="chaosDisableBtn">Disable chaos</button>
+            <button class="btn btn-secondary" id="chaosStatusBtn">Refresh status</button>
+          </div>
+          <div id="chaosOut"></div>
+        </div>
+
+        <!-- ANOMALY -->
+        <div class="pane" id="pane-anomaly">
+          <h2 class="pg-title">Anomaly Detection</h2>
+          <p class="pg-sub">Per-device Isolation Forest + RandomForest pipeline. Scan all nodes from live telemetry, or target a single node with custom metrics. Click any card to rescan and update the pipeline panel.</p>
+          <div class="an-status-bar">
+            <div class="an-dot off" id="anDot"></div>
+            <span id="anStatusTxt">Loading detector status…</span>
+            <button class="btn btn-ghost" style="margin-left:auto;padding:4px 10px;font-size:11px;" onclick="loadAnomalyStatus()">Refresh</button>
+          </div>
+          <div class="toolbar">
+            <button class="btn btn-primary" id="scanAllBtn">Scan all nodes</button>
+            <span id="scanNote" style="font-size:11px;color:var(--muted);"></span>
+          </div>
+          <div class="section-label" style="margin-top:6px;">Train detector</div>
+          <div class="field-grid">
+            <div class="field"><label>History window (days)</label><input id="trainDays" value="7"/></div>
+            <div class="field"><label>Chaos snapshots</label><input id="trainChaosSnaps" value="3000"/></div>
+          </div>
+          <div class="toolbar"><button class="btn btn-secondary" id="trainBtn">POST /anomaly/train</button></div>
+          <div class="section-label" style="margin-top:4px;">Single node scan</div>
+          <div class="field-grid">
+            <div class="field"><label>Node ID</label><input id="detectNodeId" value="droplet-1-tor1/server-1"/></div>
+            <div class="field"><label>cpu_percent</label><input id="m_cpu" value="92"/></div>
+            <div class="field"><label>memory_percent</label><input id="m_mem" value="88"/></div>
+            <div class="field"><label>disk_iops</label><input id="m_iops" value="3900"/></div>
+            <div class="field"><label>power_watts</label><input id="m_pwr" value="310"/></div>
+            <div class="field"><label>temperature_celsius</label><input id="m_temp" value="78"/></div>
+          </div>
+          <div class="toolbar"><button class="btn btn-blue" id="detectBtn">Run anomaly scan</button></div>
+          <div id="anomalyGrid" class="an-grid"></div>
+        </div>
+
+        <!-- REPORTS -->
+        <div class="pane" id="pane-reports">
+          <h2 class="pg-title">Reports</h2>
+          <div class="toolbar">
+            <button class="btn btn-secondary" onclick="runSimple('GET','/api/v1/reports/health')">health</button>
+            <button class="btn btn-secondary" onclick="runSimple('GET','/api/v1/reports/validate')">validate</button>
+            <button class="btn btn-secondary" onclick="runSimple('GET','/api/v1/reports/summary')">summary</button>
+          </div>
+          <div class="field-grid">
+            <div class="field"><label>Node ID</label><input id="reportNodeId" value="droplet-1-tor1/server-1"/></div>
+            <div style="display:flex;align-items:flex-end;">
+              <button class="btn btn-secondary" onclick="runSimple('GET','/api/v1/reports/node/'+encodeURIComponent(document.getElementById('reportNodeId').value.trim()))">GET /reports/node/{id}</button>
+            </div>
+          </div>
+          <div class="empty-state">Results render in the Response tab.</div>
+        </div>
+
+      </div>
+
+      <!-- ═══════════ PIPELINE PANEL ═══════════ -->
+      <div class="pipeline" id="pipelinePanel">
+        <div class="pipe-head">
+          <div class="pipe-title">⚙ <strong>Backend Pipeline</strong></div>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <span class="chip ch-pending" id="pipeChip">idle</span>
+            <button class="btn btn-ghost" style="padding:4px 10px;font-size:11px;" onclick="clearPipeline()">Clear</button>
+          </div>
+        </div>
+        <div class="pipe-timing" id="pipeTiming"></div>
+        <div class="pipe-scroll" id="pipeBody">
+          <div class="pipe-empty">
+            <div class="pipe-icon">⚙</div>
+            <div>Run a simulation or anomaly scan</div>
+            <div style="color:var(--faint);font-size:11px;margin-top:4px;">Each backend phase animates here live</div>
+          </div>
+        </div>
+        <div class="pipe-legend">
+          <span><i style="background:var(--green)"></i>Graph</span>
+          <span><i style="background:var(--orange)"></i>Clone</span>
+          <span><i style="background:#e879f9"></i>Mutator</span>
+          <span><i style="background:var(--purple)"></i>RF model</span>
+          <span><i style="background:var(--blue)"></i>Validator</span>
+          <span><i style="background:var(--accent)"></i>Recs</span>
+        </div>
+      </div>
+
+    </div>
+  </main>
+</div>
+
+<div id="toast"></div>
+
+<script>
+'use strict';
+const $  = id => document.getElementById(id);
+const $$ = sel => Array.from(document.querySelectorAll(sel));
+
+/* ── utils ── */
+function base(){ return $('baseUrl').value.trim().replace(/\/+$/,''); }
+function esc(s){ return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+function fmt(n,d=1){ return typeof n==='number'?n.toFixed(d):'—'; }
+function statePill(s){ const c=(s||'unknown').toLowerCase().replace(/[^a-z]/g,''); return `<span class="spill sp-${c}">${s||'unknown'}</span>`; }
+function toast(msg,t=2600){ const el=$('toast'); el.textContent=msg; el.classList.add('show'); clearTimeout(el._t); el._t=setTimeout(()=>el.classList.remove('show'),t); }
+
+function syntaxHL(json){
+  const str=typeof json==='string'?json:JSON.stringify(json,null,2);
+  return esc(str).replace(/("(\\.|[^"\\])*"(\s*:)?|\btrue\b|\bfalse\b|\bnull\b|-?\d+(\.\d+)?([eE][+-]?\d+)?)/g,m=>{
+    if(/^"/.test(m)) return `<span class="${/:$/.test(m)?'jk':'js'}">${m}</span>`;
+    if(m==='true'||m==='false') return `<span class="jb">${m}</span>`;
+    if(m==='null') return `<span class="jl">${m}</span>`;
+    return `<span class="jn">${m}</span>`;
+  });
+}
+
+/* ── API ── */
+async function api(method,path,body,query){
+  let url=base()+path;
+  if(query){ const qs=Object.entries(query).filter(([,v])=>v!=null&&v!=='').map(([k,v])=>k+'='+encodeURIComponent(v)).join('&'); if(qs) url+='?'+qs; }
+  const t0=performance.now();
+  try{
+    const res=await fetch(url,{method,headers:body!==undefined?{'Content-Type':'application/json'}:undefined,body:body!==undefined?JSON.stringify(body):undefined});
+    const text=await res.text();
+    let data; try{data=text?JSON.parse(text):null;}catch{data=text;}
+    return{ok:res.ok,status:res.status,elapsed:performance.now()-t0,data,method,path};
+  }catch(err){return{ok:false,status:0,elapsed:performance.now()-t0,error:err.message,method,path};}
+}
+
+function showRaw(result){
+  $('reqLine').value=(result.method||'')+(result.path?' '+result.path:'');
+  const cls=result.ok?'ok':'err';
+  const st=result.status?'HTTP '+result.status:'NETWORK ERR';
+  $('respMeta').innerHTML=`<span class="${cls}">${st}</span><span>${result.elapsed.toFixed(0)}ms</span><span style="color:var(--muted)">${result.method} ${result.path}</span>`;
+  $('respJson').innerHTML=syntaxHL(result.error?{error:result.error}:(result.data??{}));
+}
+
+async function runSimple(method,path,body){
+  const result=await api(method,path,body);
+  showRaw(result);
+  switchTab('response');
+  return result;
+}
+
+/* ── health ── */
+async function healthPing(){
+  try{
+    const r=await fetch(base()+'/health',{signal:AbortSignal.timeout(3000)});
+    $('hdot').className='health-dot '+(r.ok?'ok':'bad');
+    $('htxt').textContent=r.ok?'online':'HTTP '+r.status;
+  }catch{$('hdot').className='health-dot bad';$('htxt').textContent='unreachable';}
+}
+healthPing(); setInterval(healthPing,8000);
+
+/* ── tabs / nav ── */
+function switchTab(name){
+  $$('.tab').forEach(t=>t.classList.toggle('active',t.dataset.tab===name));
+  $$('.pane').forEach(p=>p.classList.toggle('active',p.id==='pane-'+name));
+}
+$$('.tab').forEach(t=>t.addEventListener('click',()=>{
+  switchTab(t.dataset.tab);
+  if(t.dataset.tab==='chaos') loadChaosStatus();
+  if(t.dataset.tab==='anomaly') loadAnomalyStatus();
+  if(t.dataset.tab==='live') refreshLive();
+}));
+
+$$('.nav-item').forEach(item=>{
+  item.addEventListener('click',()=>{
+    $$('.nav-item').forEach(i=>i.classList.remove('active'));
+    item.classList.add('active');
+    const tab=item.dataset.tab||'response';
+    const method=item.dataset.method;
+    const path=item.dataset.path;
+    if(method&&path){
+      runSimple(method,path,item.dataset.body?JSON.parse(item.dataset.body):undefined);
+    } else {
+      switchTab(tab);
+      if(tab==='chaos') loadChaosStatus();
+      if(tab==='anomaly') loadAnomalyStatus();
+      if(tab==='live') refreshLive();
+    }
+  });
+});
+
+/* ══════════════════════════════════════════════
+   PIPELINE ENGINE
+══════════════════════════════════════════════ */
+const SIM_STAGES=[
+  {id:'load_graph', lbl:'PHASE 1 — TOPOLOGY LOAD',     fn:'TopologyGraph.load()',              ico:'🗺', desc:'Load production graph from NetBox / NetworkX state.'},
+  {id:'rcu_clone',  lbl:'PHASE 2 — RCU CLONE',         fn:'CloneManager.create_clone()',        ico:'📋', desc:'Deep-copy graph via copy.deepcopy() → isolated sandbox.'},
+  {id:'mutation',   lbl:'PHASE 3 — TOPOLOGY MUTATE',   fn:'TopologyMutator.apply_mutation()',   ico:'✂', desc:'Dispatch action to mutator: move / add / remove / inject.'},
+  {id:'impact',     lbl:'PHASE 4 — IMPACT ANALYSIS',   fn:'ImpactAnalyzer.analyze()',           ico:'🔗', desc:'Graph traversal to compute traffic deltas after topology change.'},
+  {id:'projection', lbl:'PHASE 5 — FUTURE PROJECTION', fn:'FuturePredictor.project()',          ico:'📈', desc:'RandomForest (or linear fallback) projects forward N steps.'},
+  {id:'validation', lbl:'PHASE 6 — 4-TIER VALIDATION', fn:'ValidatorEngine.validate()',         ico:'🛡', desc:'Power · Rack U-space · Compute · Network SLA — all tiers checked.'},
+  {id:'report',     lbl:'PHASE 7 — RECOMMENDATION',    fn:'RecommendationEngine.generate_report()', ico:'💡', desc:'Verdict + remediation suggestions when a tier fails.'},
+];
+const ANOMALY_STAGES=[
+  {id:'threshold',   lbl:'STAGE 1 — RULE THRESHOLDS',  fn:'check_thresholds()',                    ico:'⚖', desc:'Hard WARNING / CRITICAL limits from config/constants.py — always runs first.'},
+  {id:'iso_forest',  lbl:'STAGE 2 — ISOLATION FOREST', fn:'DeviceAnomalyDetector.if_score()',      ico:'🌲', desc:'Unsupervised per-device outlier scoring via IsolationForest.'},
+  {id:'rf_classify', lbl:'STAGE 3 — RF CLASSIFIER',    fn:'DeviceAnomalyDetector.rf_predict()',    ico:'🌳', desc:'Supervised healthy-vs-chaos RandomForest classification.'},
+  {id:'alert',       lbl:'STAGE 4 — ALERT PIPELINE',   fn:'run_alert_pipeline()',                  ico:'🚨', desc:'Combines both stages into an alert envelope and routes to recommendation engine.'},
+  {id:'recs',        lbl:'STAGE 5 — RECOMMENDATIONS',  fn:'RecommendationEngine.generate_report()',ico:'💡', desc:'Remediation suggestions via the same engine used by /simulate.'},
+];
+
+let _timers=[];
+
+function clearPipeline(){
+  _timers.forEach(clearTimeout); _timers=[];
+  $('pipeBody').innerHTML=`<div class="pipe-empty"><div class="pipe-icon">⚙</div><div>Run a simulation or anomaly scan</div><div style="color:var(--faint);font-size:11px;margin-top:4px;">Each backend phase animates here live</div></div>`;
+  $('pipeChip').className='chip ch-pending'; $('pipeChip').textContent='idle';
+  $('pipeTiming').textContent='';
+}
+
+function buildStagesHTML(stages){
+  return stages.map((s,i)=>`
+    <div>
+      <div class="stage s-pending" id="stage-${s.id}">
+        <div class="stage-hd">
+          <div class="stage-ico" id="sico-${s.id}">${s.ico}</div>
+          <div class="stage-info">
+            <div class="stage-lbl">${s.lbl}</div>
+            <div class="stage-fn">${s.fn}</div>
+          </div>
+          <div><span class="chip ch-pending" id="schip-${s.id}">pending</span></div>
+        </div>
+        <div class="stage-body" id="sbody-${s.id}" style="display:none;">${esc(s.desc)}</div>
+      </div>
+      ${i<stages.length-1?'<div class="stage-conn">↓</div>':''}
+    </div>`).join('');
+}
+
+function setRunning(id){
+  const el=$(`stage-${id}`); if(!el) return;
+  el.className='stage s-running';
+  const c=$(`schip-${id}`); c.className='chip ch-running'; c.textContent='running…';
+  const b=$(`sbody-${id}`); b.style.display=''; b.innerHTML='<div class="ln" style="color:var(--blue)"><span class="spinner"></span>&nbsp; Processing…</div>';
+}
+
+function setDone(id,state,html){
+  const el=$(`stage-${id}`); if(!el) return;
+  el.className=`stage s-${state}`;
+  const map={done:'ch-done',failed:'ch-failed',warn:'ch-warn',nodata:'ch-nodata'};
+  const txt={done:'done',failed:'failed',warn:'warning',nodata:'no data'};
+  const c=$(`schip-${id}`); c.className=`chip ${map[state]||'ch-pending'}`; c.textContent=txt[state]||state;
+  const b=$(`sbody-${id}`); b.style.display=''; b.innerHTML=html||'';
+}
+
+function kv(k,v,col){ return `<div class="ln"><span class="k">${esc(k)}</span><span class="v" ${col?`style="color:${col}"`:''} >${esc(String(v))}</span></div>`; }
+function kvGreen(k,v){ return kv(k,v,'var(--green)'); }
+function kvRed(k,v){ return kv(k,v,'var(--red)'); }
+
+/* ── SIMULATE PIPELINE ── */
+function animateSimPipeline(data, elapsed){
+  const stages=SIM_STAGES;
+  $('pipeBody').innerHTML=buildStagesHTML(stages);
+  $('pipeChip').className='chip ch-running'; $('pipeChip').textContent='running';
+  $('pipeTiming').textContent=`Completed in ${elapsed.toFixed(0)}ms`;
+  _timers.forEach(clearTimeout); _timers=[];
+
+  const root   = data?.simulation_report ?? data ?? {};
+  const mut    = root.mutation_summary ?? {};
+  const impact = data?.impact_predictions ?? {};
+  const proj   = data?.projections ?? [];
+  const tier   = data?.tier_results ?? root.tier_results ?? {};
+  const recs   = root.recommendations ?? [];
+  const allowed= root.allowed ?? data?.allowed;
+  const reasons= root.reasons ?? [];
+  const warnings=root.warnings ?? [];
+  const cloneId= data?.clone_id;
+
+  const stageResults=[
+    // 1 load_graph
+    {state:'done', html: kv('source','NetBox / NetworkX')+kvGreen('status','loaded')},
+    // 2 rcu_clone
+    {state:'done', html: kv('clone_id',cloneId||'—')+kv('method','copy.deepcopy(G)')+kvGreen('sandbox','isolated')},
+    // 3 mutation
+    (()=>{
+      const ok=mut.success===true; const has=Object.keys(mut).length>0;
+      const parts=[];
+      if(mut.server)          parts.push(kv('server',mut.server));
+      if(mut.node_id)         parts.push(kv('node_id',mut.node_id));
+      if(mut.new_router)      parts.push(kv('new_router',mut.new_router));
+      if(mut.removed)         parts.push(kv('removed',mut.removed));
+      if(mut.injected_cpu!=null) parts.push(kv('injected_cpu',mut.injected_cpu+'%'));
+      if(mut.injected_memory!=null) parts.push(kv('injected_memory',mut.injected_memory+'%'));
+      if(mut.injected_iops!=null) parts.push(kv('injected_iops',mut.injected_iops));
+      if(mut.link)            parts.push(kv('link',mut.link));
+      if(mut.error)           parts.push(`<div class="ln" style="color:var(--red)">${esc(mut.error)}</div>`);
+      return {state:ok?'done':(has?'failed':'nodata'), html:parts.join('')||`<div class="ln" style="color:var(--muted)">No mutation fields in response.</div>`};
+    })(),
+    // 4 impact
+    (()=>{
+      const n=Object.keys(impact).length;
+      return {state:n?'done':'nodata', html:n?kv('nodes_affected',n)+kvGreen('result','traffic deltas computed'):`<div class="ln" style="color:var(--muted)">No impact_predictions returned.</div>`};
+    })(),
+    // 5 projection
+    (()=>{
+      const n=proj.length;
+      return {state:n?'done':'nodata', html:n?kv('steps',n)+kvGreen('result','projection complete'):`<div class="ln" style="color:var(--muted)">No projections returned.</div>`};
+    })(),
+    // 6 validation
+    (()=>{
+      const entries=Object.entries(tier);
+      const html=entries.length
+        ?entries.map(([k,v])=>kv(k,v&&v.passed===false?'FAIL':'PASS',v&&v.passed===false?'var(--red)':'var(--green)')).join('')
+        :kv('note','No tier_results in response');
+      return {state:allowed?'done':'failed', html};
+    })(),
+    // 7 report
+    (()=>{
+      const parts=[];
+      reasons.forEach(r=>parts.push(`<div class="ln" style="color:var(--red)">✗ ${esc(r)}</div>`));
+      warnings.forEach(w=>parts.push(`<div class="ln" style="color:var(--warn)">⚠ ${esc(w)}</div>`));
+      recs.forEach(r=>parts.push(`<div class="ln" style="color:var(--accent)">→ ${esc(r)}</div>`));
+      if(!parts.length) parts.push(`<div class="ln" style="color:var(--green)">All tiers cleared — no recommendations needed.</div>`);
+      return {state:allowed?'done':'warn', html:parts.join('')};
+    })(),
+  ];
+
+  const DELAY=280;
+  stageResults.forEach(({state,html},i)=>{
+    const sid=stages[i].id;
+    _timers.push(setTimeout(()=>setRunning(sid), i*DELAY));
+    _timers.push(setTimeout(()=>setDone(sid,state,html), i*DELAY+DELAY*0.55));
+  });
+  _timers.push(setTimeout(()=>{
+    $('pipeChip').className=`chip ${allowed?'ch-done':'ch-failed'}`;
+    $('pipeChip').textContent=allowed?'PASS':'FAIL';
+  }, stages.length*DELAY));
+}
+
+/* ── ANOMALY PIPELINE ── */
+function animateAnomalyPipeline(data, elapsed){
+  const stages=ANOMALY_STAGES;
+  $('pipeBody').innerHTML=buildStagesHTML(stages);
+  $('pipeChip').className='chip ch-running'; $('pipeChip').textContent='scanning';
+  $('pipeTiming').textContent=elapsed>0?`Completed in ${elapsed.toFixed(0)}ms`:'';
+  _timers.forEach(clearTimeout); _timers=[];
+
+  const th      = data?.threshold ?? {};
+  const an      = data?.anomaly   ?? {};
+  const level   = data?.alert_level ?? 'normal';
+  const recs    = data?.recommendations ?? [];
+  const triggers= data?.triggers ?? [];
+
+  const stageResults=[
+    // threshold
+    (()=>{
+      const viols=(th.violations||[]).concat(th.warnings||[]);
+      return {
+        state:th.critical?'failed':(th.any_warning?'warn':'done'),
+        html:viols.length
+          ?viols.map(v=>`<div class="ln" style="color:${v.level==='critical'?'var(--red)':'var(--warn)'}">• ${esc(v.metric||'')}=${esc(String(v.value||''))} (lim ${esc(String(v.threshold||''))}, ${esc(v.level||'')})</div>`).join('')
+          :`<div class="ln" style="color:var(--green)">No threshold rules fired.</div>`
+      };
+    })(),
+    // iso forest
+    {
+      state:an.anomaly?'warn':'done',
+      html:an.if_score!=null?kv('if_score',an.if_score)+kv('is_outlier',an.anomaly?'yes':'no',an.anomaly?'var(--warn)':'var(--green)'):`<div class="ln" style="color:var(--muted)">Model not trained or no score available.</div>`
+    },
+    // rf classifier
+    {
+      state:an.anomaly?'warn':'done',
+      html:an.rf_confidence!=null?kv('confidence',(an.rf_confidence*100).toFixed(1)+'%')+kv('type',an.anomaly_type||'healthy',an.anomaly_type&&an.anomaly_type!=='healthy'?'var(--warn)':'var(--green)'):`<div class="ln" style="color:var(--muted)">No RF output.</div>`
+    },
+    // alert
+    (()=>{
+      const col=level==='critical'?'var(--red)':level==='warning'?'var(--warn)':'var(--green)';
+      return {
+        state:level==='critical'?'failed':level==='warning'?'warn':'done',
+        html:kv('alert_level',level.toUpperCase(),col)+(triggers.length?triggers.map(t=>`<div class="ln" style="color:var(--warn)">↳ ${esc(t)}</div>`).join(''):'')
+      };
+    })(),
+    // recommendations
+    {state:recs.length?'done':'nodata', html:recs.length?recs.map(r=>`<div class="ln" style="color:var(--accent)">→ ${esc(r)}</div>`).join(''):`<div class="ln" style="color:var(--muted)">No recommendations.</div>`},
+  ];
+
+  const DELAY=230;
+  stageResults.forEach(({state,html},i)=>{
+    const sid=stages[i].id;
+    _timers.push(setTimeout(()=>setRunning(sid),i*DELAY));
+    _timers.push(setTimeout(()=>setDone(sid,state,html),i*DELAY+DELAY*0.55));
+  });
+  _timers.push(setTimeout(()=>{
+    const cls=level==='critical'?'ch-failed':level==='warning'?'ch-warn':'ch-done';
+    $('pipeChip').className=`chip ${cls}`;
+    $('pipeChip').textContent=level.toUpperCase();
+  },stages.length*DELAY));
+}
+
+function startPipelineSpinning(type){
+  const stages=type==='anomaly'?ANOMALY_STAGES:SIM_STAGES;
+  $('pipeBody').innerHTML=buildStagesHTML(stages);
+  $('pipeChip').className='chip ch-running'; $('pipeChip').textContent='running';
+  $('pipeTiming').textContent='';
+  setRunning(stages[0].id);
+}
+
+/* ── LIVE METRICS ── */
+let liveTimer=null;
+function renderLive(snap){
+  const nodes=Object.entries(snap.nodes||{});
+  const edges=Object.entries(snap.edges||{});
+  $('nodesTable').querySelector('tbody').innerHTML=nodes.length
+    ?nodes.map(([id,n])=>{const m=n.metrics||{};return `<tr><td>${esc(id)}</td><td style="color:var(--muted)">${esc(n.role||m.role||'—')}</td><td>${statePill(n.state)}</td><td>${fmt(m.cpu_percent)}</td><td>${fmt(m.memory_percent)}</td><td>${m.disk_iops??'—'}</td><td>${fmt(m.power_watts,0)}</td><td>${m.anomaly_detected?'<span style="color:var(--warn)">⚠ yes</span>':'—'}</td></tr>`;}).join('')
+    :'<tr><td colspan="8" style="color:var(--muted)">No nodes.</td></tr>';
+  $('edgesTable').querySelector('tbody').innerHTML=edges.length
+    ?edges.map(([k,e])=>{const m=e.metrics||{};return `<tr><td>${esc(k)}</td><td>${statePill(e.state||'active')}</td><td>${fmt(m.latency_ms)}</td><td>${fmt(m.packet_loss_percent,2)}</td><td>${fmt(m.bandwidth_mbps,0)}</td></tr>`;}).join('')
+    :'<tr><td colspan="5" style="color:var(--muted)">No edges.</td></tr>';
+  $('liveStamp').textContent='Updated '+new Date().toLocaleTimeString()+(snap.chaos_active?' · 🔥 chaos':'');
+}
+async function refreshLive(){
+  const r=await api('GET','/api/v1/telemetry');
+  showRaw(r);
+  if(r.ok&&r.data) renderLive(r.data);
+}
+$('liveRefreshBtn').addEventListener('click',refreshLive);
+$('liveToggleBtn').addEventListener('click',()=>{
+  if(liveTimer){clearInterval(liveTimer);liveTimer=null;$('liveToggleBtn').textContent='Start polling';}
+  else{refreshLive();liveTimer=setInterval(refreshLive,Math.max(1000,parseInt($('liveInterval').value)||4000));$('liveToggleBtn').textContent='Stop polling';}
+});
+$('btnTelNode').addEventListener('click',()=>runSimple('GET','/api/v1/telemetry/'+encodeURIComponent($('nodeInspectId').value.trim())));
+$('btnProfileNode').addEventListener('click',()=>runSimple('GET','/api/v1/analytics/profile/'+encodeURIComponent($('nodeInspectId').value.trim())));
+$('btnCorrNode').addEventListener('click',()=>runSimple('GET','/api/v1/analytics/correlations/'+encodeURIComponent($('nodeInspectId').value.trim())));
+$('btnNodeDetail').addEventListener('click',()=>runSimple('GET','/api/v1/topology/node/'+encodeURIComponent($('nodeInspectId').value.trim())));
+
+/* ── SIMULATION ── */
+let SCENARIOS=[];
+let activeScenario=null;
+
+function actionToScenario(a){
+  const fields=Object.keys(a.params||{}).map(k=>({
+    k, l:k, v:a.example&&a.example[k]!=null?String(a.example[k]):''
+  }));
+  return {id:a.action, cat:a.category, title:a.action, desc:a.description, fields};
+}
+
+async function loadScenarios(){
+  const result=await api('GET','/api/v1/simulate/actions');
+  if(result.ok&&result.data&&result.data.actions){
+    SCENARIOS=result.data.actions.map(actionToScenario);
+    activeScenario=SCENARIOS[0]||null;
+    buildScenarios();
+    buildSimParams();
+  } else {
+    $('scenarioGrid').innerHTML='<div class="ln" style="color:var(--red)">Failed to load actions from API</div>';
+  }
+}
+
+function buildScenarios(){
+  if(!activeScenario) return;
+  $('scenarioGrid').innerHTML=SCENARIOS.map(s=>`
+    <div class="scenario-card ${s.id===activeScenario.id?'sc-active':''}" data-id="${s.id}">
+      <div class="sc-cat cat-${s.cat}">${s.cat}</div>
+      <div class="sc-title">${s.title}</div>
+      <div class="sc-desc">${s.desc}</div>
+    </div>`).join('');
+  $$('.scenario-card').forEach(c=>c.addEventListener('click',()=>{
+    activeScenario=SCENARIOS.find(s=>s.id===c.dataset.id);
+    buildScenarios(); buildSimParams(); $('simVerdict').innerHTML='';
+  }));
+}
+function buildSimParams(){
+  if(!activeScenario) return;
+  $('simParamArea').innerHTML=`<div class="field-grid">${
+    activeScenario.fields.map(f=>`<div class="field"><label>${esc(f.l)}</label><input data-key="${esc(f.k)}" value="${esc(f.v)}"/></div>`).join('')
+  }<div class="field"><label>Projection steps</label><input id="projSteps" value="3" type="number"/></div></div>`;
+}
+loadScenarios();
+
+$('runSimBtn').addEventListener('click',async()=>{
+  if(!activeScenario) return;
+  const btn=$('runSimBtn'); const note=$('simRunningNote');
+  const params={};
+  $$('#simParamArea input[data-key]').forEach(i=>{if(i.value!=='')params[i.dataset.key]=i.value;});
+  const body={action:activeScenario.id,params,projection_steps:parseInt($('projSteps').value)||3};
+  btn.disabled=true; note.style.display='flex'; $('simVerdict').innerHTML='';
+  startPipelineSpinning('sim');
+  const result=await api('POST','/api/v1/simulate',body);
+  btn.disabled=false; note.style.display='none';
+  showRaw(result);
+  if(result.data) animateSimPipeline(result.data,result.elapsed);
+  renderSimVerdict(result);
+});
+
+function renderSimVerdict(result){
+  const box=$('simVerdict');
+  if(!result.ok){
+    box.innerHTML=`<div class="verdict-box"><div class="verdict-hd fail">ERROR</div><div class="verdict-sub">HTTP ${result.status} · ${result.elapsed.toFixed(0)}ms</div><div class="viol">${esc(JSON.stringify(result.data||result.error))}</div></div>`;
+    return;
+  }
+  const d=result.data||{};
+  const root=d.simulation_report||d;
+  const allowed=root.allowed??d.allowed;
+  const reasons=root.reasons||[];
+  const warnings=root.warnings||[];
+  const recs=root.recommendations||[];
+  const steps=(d.projections||root.projections||[]).length;
+  box.innerHTML=`<div class="verdict-box">
+    <div class="verdict-hd ${allowed?'pass':'fail'}">${allowed?'PASS ✅':'FAIL ❌'}</div>
+    <div class="verdict-sub">${result.elapsed.toFixed(0)}ms · clone ${esc(d.clone_id||'—')} · ${steps} projection steps</div>
+    <div class="verdict-items">
+      ${reasons.length?'<div class="section-label" style="margin-bottom:6px;">Violations</div>'+reasons.map(v=>`<div class="viol">${esc(v)}</div>`).join(''):''}
+      ${warnings.length?'<div class="section-label" style="margin-bottom:6px;margin-top:10px;">Warnings</div>'+warnings.map(w=>`<div class="warn-item">${esc(w)}</div>`).join(''):''}
+      ${recs.length?'<div class="section-label" style="margin-bottom:6px;margin-top:10px;">Recommendations</div>'+recs.map(r=>`<div class="rec-item"><strong>→</strong> ${esc(r)}</div>`).join(''):''}
+      ${!reasons.length&&!warnings.length?`<div class="rec-item" style="margin-top:6px;"><strong style="color:var(--green)">✓</strong> All constraint tiers cleared — change is safe to apply.</div>`:''}
+    </div>
+  </div>`;
+}
+
+/* ── NLP ── */
+function setNLP(el){ $('nlpInput').value=el.textContent; }
+$('nlpBtn').addEventListener('click',sendNLP);
+async function sendNLP(){
+  const text=$('nlpInput').value.trim(); if(!text) return;
+  const btn=$('nlpBtn'); btn.disabled=true; btn.innerHTML='<span class="spinner"></span>';
+  $('nlpResult').innerHTML='<div style="color:var(--muted);font-size:12px;margin-top:12px;">Resolving intent…</div>';
+  startPipelineSpinning('sim');
+  const result=await api('POST','/api/v1/metrics/resolve',{request_text:text});
+  btn.disabled=false; btn.textContent='Resolve';
+  showRaw(result);
+  if(result.data){
+    const simData={...result.data,...(result.data.simulation_report||{})};
+    animateSimPipeline(simData,result.elapsed);
+    const meta=result.data.parser_metadata||{};
+    const rep=result.data.simulation_report||result.data;
+    const allowed=rep.allowed;
+    $('nlpResult').innerHTML=`<div class="verdict-box" style="margin-top:16px;">
+      <div class="verdict-hd ${allowed?'pass':'fail'}">${allowed?'PASS ✅':'FAIL ❌'}</div>
+      <div class="verdict-sub">parser=${esc(meta.parser_used||'—')} · action=${esc(meta.action||'—')} · ${result.elapsed.toFixed(0)}ms</div>
+      ${(rep.reasons||[]).map(r=>`<div class="viol">${esc(r)}</div>`).join('')}
+      ${(rep.recommendations||[]).map(r=>`<div class="rec-item"><strong>→</strong> ${esc(r)}</div>`).join('')}
+      ${!(rep.reasons||[]).length?'<div class="rec-item" style="color:var(--green)">All tiers cleared.</div>':''}
+    </div>`;
+  }
+}
+
+/* ── CHAOS ── */
+async function loadChaosStatus(){
+  try{
+    const{data}=await api('GET','/api/v1/chaos/status'); if(!data) return;
+    const on=data.active;
+    $('chaosDot').className='chaos-dot'+(on?' on':'');
+    $('chaosLabel').textContent=on?'🔥 Chaos ACTIVE':'✅ System normal';
+    $('chaosSub').textContent=on
+      ?`scenario: ${data.scenario||'—'} · nodes: ${(data.affected_nodes||[]).join(', ')||'all'}`
+      :'All nodes operating within normal parameters';
+    $('chaosOut').innerHTML=`<div class="section-label" style="margin-top:16px;">Last response</div><pre class="json">${syntaxHL(data)}</pre>`;
+  }catch(e){ $('chaosSub').textContent='Could not reach API: '+e.message; }
+}
+$('chaosStatusBtn').addEventListener('click',loadChaosStatus);
+$('chaosEnableBtn').addEventListener('click',async()=>{
+  const nodes=$('chaosNodes').value.split(',').map(s=>s.trim()).filter(Boolean);
+  const r=await api('POST','/api/v1/chaos/enable',{enable:true,scenario:$('chaosScenario').value,nodes:nodes.length?nodes:undefined});
+  showRaw(r); loadChaosStatus(); toast('🔥 Chaos enabled');
+});
+$('chaosDisableBtn').addEventListener('click',async()=>{
+  const r=await api('POST','/api/v1/chaos/disable');
+  showRaw(r); loadChaosStatus(); toast('✅ Chaos disabled');
+});
+
+/* ── ANOMALY ── */
+async function loadAnomalyStatus(){
+  try{
+    const{data}=await api('GET','/api/v1/analytics/anomaly/status'); if(!data) return;
+    const trained=data.trained;
+    $('anDot').className='an-dot'+(trained?'':' off');
+    $('anStatusTxt').textContent=trained
+      ?`Detector ready — ${(data.if_devices||[]).length} device models (IF + RF) loaded`
+      :'Detector not trained — run train_models.py first';
+  }catch(e){ $('anStatusTxt').textContent='Could not reach: '+e.message; }
+}
+
+$('trainBtn').addEventListener('click',async()=>{
+  $('trainBtn').disabled=true; $('trainBtn').innerHTML='<span class="spinner"></span> Training…';
+  const r=await api('POST','/api/v1/analytics/anomaly/train',undefined,{days:$('trainDays').value,chaos_snapshots:$('trainChaosSnaps').value});
+  $('trainBtn').disabled=false; $('trainBtn').textContent='POST /anomaly/train';
+  showRaw(r); switchTab('response'); toast(r.ok?'Training complete':'Training failed');
+});
+
+$('detectBtn').addEventListener('click',async()=>{
+  const nodeId=$('detectNodeId').value.trim();
+  const metrics={cpu_percent:+$('m_cpu').value,memory_percent:+$('m_mem').value,disk_iops:+$('m_iops').value,power_watts:+$('m_pwr').value,temperature_celsius:+$('m_temp').value};
+  const btn=$('detectBtn'); btn.disabled=true; btn.innerHTML='<span class="spinner"></span> Scanning…';
+  startPipelineSpinning('anomaly');
+  const result=await api('POST','/api/v1/analytics/anomaly/detect/'+encodeURIComponent(nodeId),{metrics});
+  btn.disabled=false; btn.textContent='Run anomaly scan';
+  showRaw(result);
+  if(result.data){
+    animateAnomalyPipeline(result.data,result.elapsed);
+    $('anomalyGrid').innerHTML=renderAnomalyCard(nodeId,result.data);
+  }
+});
+
+$('scanAllBtn').addEventListener('click',async()=>{
+  const btn=$('scanAllBtn'); const note=$('scanNote');
+  btn.disabled=true; btn.innerHTML='<span class="spinner"></span> Scanning…';
+  note.textContent='Fetching telemetry…';
+  $('anomalyGrid').innerHTML='<div class="empty-state">Loading…</div>';
+  try{
+    const{data:tel}=await api('GET','/api/v1/telemetry');
+    if(!tel||!tel.nodes){$('anomalyGrid').innerHTML='<div class="empty-state">No telemetry data.</div>';return;}
+    const nodes=Object.entries(tel.nodes);
+    note.textContent=`Scanning ${nodes.length} nodes…`;
+    const results=await Promise.all(nodes.map(async([nodeId,n])=>{
+      try{const{data}=await api('POST','/api/v1/analytics/anomaly/detect/'+encodeURIComponent(nodeId),{metrics:n.metrics||{}});return{nodeId,data};}
+      catch{return{nodeId,data:null};}
+    }));
+    const ord={critical:0,warning:1,normal:2};
+    results.sort((a,b)=>(ord[a.data?.alert_level]??3)-(ord[b.data?.alert_level]??3));
+    $('anomalyGrid').innerHTML=results.map(({nodeId,data})=>renderAnomalyCard(nodeId,data)).join('');
+    // show pipeline for most severe
+    const worst=results.find(r=>r.data?.alert_level==='critical')||results.find(r=>r.data?.alert_level==='warning')||results[0];
+    if(worst?.data) animateAnomalyPipeline(worst.data,0);
+    const crit=results.filter(r=>r.data?.alert_level==='critical').length;
+    const warn=results.filter(r=>r.data?.alert_level==='warning').length;
+    note.textContent=`Done — ${crit} critical, ${warn} warning, ${results.length-crit-warn} normal`;
+    toast(`Scan complete — ${crit} critical, ${warn} warning`);
+  }catch(e){
+    $('anomalyGrid').innerHTML=`<div class="empty-state" style="color:var(--red)">Error: ${esc(e.message)}</div>`;
+  }
+  btn.disabled=false; btn.textContent='Scan all nodes';
+});
+
+function renderAnomalyCard(nodeId,data){
+  const shortId=nodeId.includes('/')?nodeId.split('/').pop():nodeId;
+  const lvl=data?.alert_level||'normal';
+  const an=data?.anomaly||{};
+  const recs=data?.recommendations||[];
+  const reasons=(an.anomaly_reason||[]);
+  const triggers=(data?.triggers||[]).filter(t=>!t.startsWith('if_'));
+  const safeId=esc(nodeId);
+  return `<div class="an-card c-${esc(lvl)}" onclick="rescanCard('${safeId}')" title="Click to rescan">
+    <div class="an-nid">${esc(nodeId)}</div>
+    <div class="an-name">${esc(shortId)}</div>
+    <span class="chip ${lvl==='normal'?'ch-done':lvl==='warning'?'ch-warn':'ch-failed'}">${lvl.toUpperCase()}</span>
+    ${an.if_score!=null?`<div class="an-scores">IF score <span>${an.if_score}</span>${an.rf_confidence!=null?`&nbsp;·&nbsp; RF <span>${(an.rf_confidence*100).toFixed(0)}%</span>`:''}</div>`:''}
+    ${reasons.length||triggers.length?`<div style="margin-top:6px;">${[...triggers,...reasons].map(r=>`<span class="reason-chip">${esc(r)}</span>`).join('')}</div>`:''}
+    ${recs.length?`<div style="margin-top:8px;">${recs.map(r=>`<div class="rec-item" style="margin-bottom:4px;font-size:11px;">→ ${esc(r)}</div>`).join('')}</div>`:''}
+  </div>`;
+}
+
+window.rescanCard=async function(nodeId){
+  startPipelineSpinning('anomaly');
+  const result=await api('POST','/api/v1/analytics/anomaly/detect/'+encodeURIComponent(nodeId),{metrics:{}});
+  showRaw(result);
+  if(result.data){ animateAnomalyPipeline(result.data,result.elapsed); toast('Rescanned '+nodeId); }
+};
+
+/* ── INIT ── */
+loadAnomalyStatus();
+loadChaosStatus();
+switchTab('response');
+</script>
+</body>
+</html>

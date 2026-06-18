@@ -46,7 +46,6 @@ class TopologyLoader:
                 "subnet": raw.get("droplet_meta", {}).get("subnet", ""),
                 "size": raw.get("droplet_meta", {}).get("size", ""),
                 "tags": raw.get("droplet_meta", {}).get("tags", []),
-                # 🟢 ADDED: Retain individual host port interface lists in the node graph definition
                 "interfaces": raw.get("interfaces", []),
                 "state": "healthy",
                 "metrics": {},
@@ -73,7 +72,6 @@ class TopologyLoader:
             edge = {
                 "source": resolve(link["source"]),
                 "target": resolve(link["target"]),
-                # 🟢 ADDED: Map explicit physical interfaces and link types onto the network edges
                 "source_iface": link.get("source_iface", "eth0"),
                 "target_iface": link.get("target_iface", "eth0"),
                 "link_type": link.get("link_type", "network_link"),
@@ -89,8 +87,10 @@ class TopologyLoader:
     @staticmethod
     def _node_type(role: str) -> str:
         return {
-            "compute-node": "server", "tor-router": "switch",
-            "storage-tor": "switch", "spine-switch": "switch",
+            "compute-node": "server",
+            "tor-router": "switch",
+            "storage-tor": "switch",
+            "spine-switch": "switch",
             "storage-controller": "storage_controller",
             "object-storage": "object_storage",
             "metrics-exporter": "metrics_exporter",

@@ -1,0 +1,638 @@
+# ============================================================
+# Source of Truth — HPE Digital Twin
+# Merged: Interface-level compute/spine + Storage Rack
+#         + Monitoring stack on all droplets
+#         + Interfaces on all devices (servers, mgmt services)
+# ============================================================
+
+site:
+  name: "hpe-digital-twin"
+  region: "blr1"
+
+# ── VPC and Subnet Definitions
+network:
+  vpc:
+    name: "hpe-twin-vpc"
+    region: "blr1"
+
+  subnets:
+    - name: "subnet-1-tor1"
+      cidr: "10.10.1.0/24"
+      description: "Models ToR Switch 1"
+
+    - name: "subnet-2-tor2"
+      cidr: "10.10.2.0/24"
+      description: "Models ToR Switch 2"
+
+    - name: "subnet-3-mgmt"
+      cidr: "10.10.3.0/24"
+      description: "Management and Spine plane"
+
+    - name: "subnet-4-storage"
+      cidr: "10.10.4.0/24"
+      description: "Storage fabric — Unified Array (block+file) and Object Store"
+
+# ── Droplet Definitions
+droplets:
+  - name: "droplet-1-tor1"
+    size: "s-2vcpu-4gb"
+    image: "ubuntu-24-04-x64"
+    region: "blr1"
+    subnet: "subnet-1-tor1"
+    description: "Hosts ToR Switch 1 compute nodes"
+    tags:
+      - "tor1"
+      - "compute"
+
+  - name: "droplet-2-tor2"
+    size: "s-2vcpu-4gb"
+    image: "ubuntu-24-04-x64"
+    region: "blr1"
+    subnet: "subnet-2-tor2"
+    description: "Hosts ToR Switch 2 compute nodes"
+    tags:
+      - "tor2"
+      - "compute"
+
+  - name: "droplet-3-mgmt"
+    size: "s-1vcpu-2gb"
+    image: "ubuntu-24-04-x64"
+    region: "blr1"
+    subnet: "subnet-3-mgmt"
+    description: "Management plane - NetBox, Neo4j, Python App, Spine"
+    tags:
+      - "management"
+      - "spine"
+
+  - name: "droplet-4-storage"
+    size: "s-2vcpu-8gb"
+    image: "ubuntu-24-04-x64"
+    region: "blr1"
+    subnet: "subnet-4-storage"
+    description: "Storage rack — Unified Array (block+file) and Object Store (S3)"
+    tags:
+      - "storage"
+      - "array"
+      - "object-store"
+
+# ── Container Definitions per Droplet
+containers:
+
+  # ────────────────────────────────────────────
+  # COMPUTE RACK 1
+  # ────────────────────────────────────────────
+  droplet-1-tor1:
+    - name: "server-1"
+      image: "ubuntu:24.04"
+      role: "compute-node"
+      ip: "10.10.1.11"
+      description: "Compute node under ToR Switch 1"
+      interfaces:
+        - name: "eth0"
+          type: "1000base-t"
+          role: "access"
+          connects_to: "router-1"
+          description: "Uplink to ToR Switch 1"
+
+    - name: "server-2"
+      image: "ubuntu:24.04"
+      role: "compute-node"
+      ip: "10.10.1.12"
+      description: "Compute node under ToR Switch 1"
+      interfaces:
+        - name: "eth0"
+          type: "1000base-t"
+          role: "access"
+          connects_to: "router-1"
+          description: "Uplink to ToR Switch 1"
+
+    - name: "router-1"
+      image: "frrouting/frr"
+      role: "tor-router"
+      ip: "10.10.1.1"
+      description: "Models ToR Switch 1 (Top of Rack Router)"
+      interfaces:
+        - name: "eth0"
+          type: "1000base-t"
+          role: "uplink"
+          connects_to: "spine-router"
+          description: "Uplink to Spine Switch"
+        - name: "eth1"
+          type: "1000base-t"
+          role: "downlink"
+          connects_to: "server-1"
+          description: "Downlink to server-1"
+        - name: "eth2"
+          type: "1000base-t"
+          role: "downlink"
+          connects_to: "server-2"
+          description: "Downlink to server-2"
+
+    - name: "node-exporter"
+      image: "prom/node-exporter:latest"
+      role: "metrics-exporter"
+      port: 9100
+      network_mode: "host"
+      description: "Exports host-level CPU, RAM, disk metrics to Prometheus"
+
+    - name: "cadvisor"
+      image: "gcr.io/cadvisor/cadvisor:latest"
+      role: "container-metrics"
+      port: 8080
+      network_mode: "host"
+      description: "Exports Docker container metrics to Prometheus"
+
+  # ────────────────────────────────────────────
+  # COMPUTE RACK 2
+  # ────────────────────────────────────────────
+  droplet-2-tor2:
+    - name: "server-3"
+      image: "ubuntu:24.04"
+      role: "compute-node"
+      ip: "10.10.2.11"
+      description: "Compute node under ToR Switch 2"
+      interfaces:
+        - name: "eth0"
+          type: "1000base-t"
+          role: "access"
+          connects_to: "router-2"
+          description: "Uplink to ToR Switch 2"
+
+    - name: "server-4"
+      image: "ubuntu:24.04"
+      role: "compute-node"
+      ip: "10.10.2.12"
+      description: "Compute node under ToR Switch 2"
+      interfaces:
+        - name: "eth0"
+          type: "1000base-t"
+          role: "access"
+          connects_to: "router-2"
+          description: "Uplink to ToR Switch 2"
+
+    - name: "router-2"
+      image: "frrouting/frr"
+      role: "tor-router"
+      ip: "10.10.2.1"
+      description: "Models ToR Switch 2 (Top of Rack Router)"
+      interfaces:
+        - name: "eth0"
+          type: "1000base-t"
+          role: "uplink"
+          connects_to: "spine-router"
+          description: "Uplink to Spine Switch"
+        - name: "eth1"
+          type: "1000base-t"
+          role: "downlink"
+          connects_to: "server-3"
+          description: "Downlink to server-3"
+        - name: "eth2"
+          type: "1000base-t"
+          role: "downlink"
+          connects_to: "server-4"
+          description: "Downlink to server-4"
+
+    - name: "node-exporter"
+      image: "prom/node-exporter:latest"
+      role: "metrics-exporter"
+      port: 9100
+      network_mode: "host"
+      description: "Exports host-level CPU, RAM, disk metrics to Prometheus"
+
+    - name: "cadvisor"
+      image: "gcr.io/cadvisor/cadvisor:latest"
+      role: "container-metrics"
+      port: 8080
+      network_mode: "host"
+      description: "Exports Docker container metrics to Prometheus"
+
+  # ────────────────────────────────────────────
+  # MANAGEMENT RACK
+  # ────────────────────────────────────────────
+  droplet-3-mgmt:
+    - name: "netbox"
+      image: "netboxcommunity/netbox:latest"
+      role: "infrastructure-docs"
+      ip: "10.10.3.11"
+      port: 8080
+      description: "NetBox - infrastructure source of truth UI"
+      interfaces:
+        - name: "eth0"
+          type: "1000base-t"
+          role: "management"
+          description: "Management network access"
+
+    - name: "neo4j"
+      image: "neo4j:latest"
+      role: "graph-database"
+      ip: "10.10.3.12"
+      port: 7474
+      description: "Neo4j - topology graph database"
+      interfaces:
+        - name: "eth0"
+          type: "1000base-t"
+          role: "management"
+          description: "Management network access"
+
+    - name: "python-app"
+      image: "python:3.11"
+      role: "middleware"
+      ip: "10.10.3.13"
+      port: 5000
+      description: "Middleware - syncs NetBox and DigitalOcean"
+      interfaces:
+        - name: "eth0"
+          type: "1000base-t"
+          role: "management"
+          description: "Management network access"
+
+    - name: "spine-router"
+      image: "frrouting/frr"
+      role: "spine-switch"
+      ip: "10.10.3.1"
+      description: "Models Spine Switch connecting all subnets"
+      interfaces:
+        - name: "eth0"
+          type: "1000base-t"
+          role: "downlink"
+          connects_to: "router-1"
+          description: "Downlink to ToR Switch 1"
+        - name: "eth1"
+          type: "1000base-t"
+          role: "downlink"
+          connects_to: "router-2"
+          description: "Downlink to ToR Switch 2"
+        - name: "eth2"
+          type: "1000base-t"
+          role: "downlink"
+          connects_to: "storage-router"
+          description: "Downlink to Storage ToR"
+
+    - name: "prometheus"
+      image: "prom/prometheus:latest"
+      role: "metrics-collector"
+      ip: "10.10.3.17"
+      port: 9090
+      description: "Prometheus - scrapes metrics from all droplets"
+      interfaces:
+        - name: "eth0"
+          type: "1000base-t"
+          role: "management"
+          description: "Management network access"
+
+    - name: "grafana"
+      image: "grafana/grafana:latest"
+      role: "metrics-dashboard"
+      ip: "10.10.3.18"
+      port: 3000
+      description: "Grafana - visualises Prometheus metrics (admin/admin)"
+      interfaces:
+        - name: "eth0"
+          type: "1000base-t"
+          role: "management"
+          description: "Management network access"
+
+    - name: "node-exporter"
+      image: "prom/node-exporter:latest"
+      role: "metrics-exporter"
+      port: 9100
+      network_mode: "host"
+      description: "Exports host-level CPU, RAM, disk metrics to Prometheus"
+
+    - name: "cadvisor"
+      image: "gcr.io/cadvisor/cadvisor:latest"
+      role: "container-metrics"
+      port: 8080
+      network_mode: "host"
+      description: "Exports Docker container metrics to Prometheus"
+
+  # ────────────────────────────────────────────
+  # STORAGE RACK
+  # ────────────────────────────────────────────
+  droplet-4-storage:
+
+    # ── Storage ToR Switch
+    - name: "storage-router"
+      image: "frrouting/frr"
+      role: "storage-tor"
+      ip: "10.10.4.1"
+      description: "Models Storage ToR Switch — gateway for storage fabric"
+      interfaces:
+        - name: "eth0"
+          type: "10gbase-t"
+          role: "uplink"
+          connects_to: "spine-router"
+          description: "Uplink to Spine Switch"
+        - name: "eth1"
+          type: "25gbase-t"
+          role: "downlink"
+          connects_to: "array-ctrl-a"
+          description: "Downlink to Array Controller A (port 1)"
+        - name: "eth2"
+          type: "25gbase-t"
+          role: "downlink"
+          connects_to: "array-ctrl-a"
+          description: "Downlink to Array Controller A (port 2)"
+        - name: "eth3"
+          type: "25gbase-t"
+          role: "downlink"
+          connects_to: "array-ctrl-b"
+          description: "Downlink to Array Controller B (port 1)"
+        - name: "eth4"
+          type: "25gbase-t"
+          role: "downlink"
+          connects_to: "array-ctrl-b"
+          description: "Downlink to Array Controller B (port 2)"
+        - name: "eth5"
+          type: "10gbase-t"
+          role: "downlink"
+          connects_to: "obj-node-1"
+          description: "Downlink to Object Node 1"
+        - name: "eth6"
+          type: "10gbase-t"
+          role: "downlink"
+          connects_to: "obj-node-2"
+          description: "Downlink to Object Node 2"
+        - name: "eth7"
+          type: "10gbase-t"
+          role: "downlink"
+          connects_to: "obj-node-3"
+          description: "Downlink to Object Node 3"
+
+    # ── Unified Array — Block + File Storage
+    - name: "array-ctrl-a"
+      image: "truenas/truenas-scale"
+      role: "storage-controller"
+      ip: "10.10.4.11"
+      description: "Unified Array Controller A — serves iSCSI (block) and NFS (file)"
+      interfaces:
+        # Host-facing ports (frontend) — protocol-agnostic, serve iSCSI + NFS
+        - name: "eth0"
+          type: "25gbase-t"
+          speed: "25gbe"
+          role: "host-port"
+          status: "active"
+          connects_to: "storage-router"
+          protocols: ["iscsi", "nfs"]
+          description: "Host port 1 — to Storage ToR"
+        - name: "eth1"
+          type: "25gbase-t"
+          speed: "25gbe"
+          role: "host-port"
+          status: "active"
+          connects_to: "storage-router"
+          protocols: ["iscsi", "nfs"]
+          description: "Host port 2 — to Storage ToR"
+        # Drive-facing ports (backend) — to disk shelves
+        - name: "sas0"
+          type: "sas"
+          speed: "12gbps"
+          role: "drive-port"
+          status: "active"
+          connects_to: "shelf-1:expander-a"
+          description: "Backend SAS to Disk Shelf 1"
+        - name: "sas1"
+          type: "sas"
+          speed: "12gbps"
+          role: "drive-port"
+          status: "active"
+          connects_to: "shelf-2:expander-a"
+          description: "Backend SAS to Disk Shelf 2"
+        # Inter-controller link — direct to partner (no switch)
+        - name: "ic0"
+          type: "infiniband"
+          speed: "100gbps"
+          role: "interconnect"
+          status: "active"
+          connects_to: "array-ctrl-b:ic0"
+          description: "HA heartbeat + cache mirror to Controller B"
+        # Management port — out-of-band to mgmt network
+        - name: "mgmt0"
+          type: "1000base-t"
+          speed: "1gbe"
+          role: "management"
+          status: "active"
+          ip: "10.10.3.50"
+          description: "Out-of-band management (NetBox, firmware, monitoring)"
+
+    - name: "array-ctrl-b"
+      image: "truenas/truenas-scale"
+      role: "storage-controller"
+      ip: "10.10.4.12"
+      description: "Unified Array Controller B — HA pair with Controller A"
+      interfaces:
+        # Host-facing ports (frontend)
+        - name: "eth0"
+          type: "25gbase-t"
+          speed: "25gbe"
+          role: "host-port"
+          status: "active"
+          connects_to: "storage-router"
+          protocols: ["iscsi", "nfs"]
+          description: "Host port 1 — to Storage ToR"
+        - name: "eth1"
+          type: "25gbase-t"
+          speed: "25gbe"
+          role: "host-port"
+          status: "active"
+          connects_to: "storage-router"
+          protocols: ["iscsi", "nfs"]
+          description: "Host port 2 — to Storage ToR"
+        # Drive-facing ports (backend)
+        - name: "sas0"
+          type: "sas"
+          speed: "12gbps"
+          role: "drive-port"
+          status: "active"
+          connects_to: "shelf-1:expander-b"
+          description: "Backend SAS to Disk Shelf 1"
+        - name: "sas1"
+          type: "sas"
+          speed: "12gbps"
+          role: "drive-port"
+          status: "active"
+          connects_to: "shelf-2:expander-b"
+          description: "Backend SAS to Disk Shelf 2"
+        # Inter-controller link
+        - name: "ic0"
+          type: "infiniband"
+          speed: "100gbps"
+          role: "interconnect"
+          status: "active"
+          connects_to: "array-ctrl-a:ic0"
+          description: "HA heartbeat + cache mirror to Controller A"
+        # Management port
+        - name: "mgmt0"
+          type: "1000base-t"
+          speed: "1gbe"
+          role: "management"
+          status: "active"
+          ip: "10.10.3.51"
+          description: "Out-of-band management (NetBox, firmware, monitoring)"
+
+    # ── Object Store Cluster — S3-compatible
+    - name: "obj-node-1"
+      image: "minio/minio"
+      role: "object-storage"
+      ip: "10.10.4.21"
+      port: 9000
+      description: "MinIO node 1 — S3-compatible object storage"
+      interfaces:
+        - name: "eth0"
+          type: "10gbase-t"
+          speed: "10gbe"
+          role: "data"
+          status: "active"
+          connects_to: "storage-router"
+          protocols: ["s3"]
+          description: "Data port to Storage ToR"
+
+    - name: "obj-node-2"
+      image: "minio/minio"
+      role: "object-storage"
+      ip: "10.10.4.22"
+      port: 9000
+      description: "MinIO node 2 — S3-compatible object storage"
+      interfaces:
+        - name: "eth0"
+          type: "10gbase-t"
+          speed: "10gbe"
+          role: "data"
+          status: "active"
+          connects_to: "storage-router"
+          protocols: ["s3"]
+          description: "Data port to Storage ToR"
+
+    - name: "obj-node-3"
+      image: "minio/minio"
+      role: "object-storage"
+      ip: "10.10.4.23"
+      port: 9000
+      description: "MinIO node 3 — minimum for erasure coding"
+      interfaces:
+        - name: "eth0"
+          type: "10gbase-t"
+          speed: "10gbe"
+          role: "data"
+          status: "active"
+          connects_to: "storage-router"
+          protocols: ["s3"]
+          description: "Data port to Storage ToR"
+
+    # ── Monitoring (same pattern as other droplets)
+    - name: "node-exporter"
+      image: "prom/node-exporter:latest"
+      role: "metrics-exporter"
+      port: 9100
+      network_mode: "host"
+      description: "Exports host-level CPU, RAM, disk metrics to Prometheus"
+
+    - name: "cadvisor"
+      image: "gcr.io/cadvisor/cadvisor:latest"
+      role: "container-metrics"
+      port: 8080
+      network_mode: "host"
+      description: "Exports Docker container metrics to Prometheus"
+
+# ── Network Links (Topology)
+# Each link maps source_iface → target_iface for port-level what-if queries
+links:
+
+  # ── Spine ↔ Compute ToR uplinks
+  - source: "spine-router"
+    source_iface: "eth0"
+    target: "router-1"
+    target_iface: "eth0"
+    description: "Spine eth0 to ToR Switch 1 eth0 (uplink)"
+
+  - source: "spine-router"
+    source_iface: "eth1"
+    target: "router-2"
+    target_iface: "eth0"
+    description: "Spine eth1 to ToR Switch 2 eth0 (uplink)"
+
+  # ── Spine ↔ Storage ToR uplink
+  - source: "spine-router"
+    source_iface: "eth2"
+    target: "storage-router"
+    target_iface: "eth0"
+    description: "Spine eth2 to Storage ToR eth0 (uplink)"
+
+  # ── Compute Rack 1 internal links
+  - source: "router-1"
+    source_iface: "eth1"
+    target: "server-1"
+    target_iface: "eth0"
+    description: "ToR Switch 1 eth1 downlink to server-1"
+
+  - source: "router-1"
+    source_iface: "eth2"
+    target: "server-2"
+    target_iface: "eth0"
+    description: "ToR Switch 1 eth2 downlink to server-2"
+
+  # ── Compute Rack 2 internal links
+  - source: "router-2"
+    source_iface: "eth1"
+    target: "server-3"
+    target_iface: "eth0"
+    description: "ToR Switch 2 eth1 downlink to server-3"
+
+  - source: "router-2"
+    source_iface: "eth2"
+    target: "server-4"
+    target_iface: "eth0"
+    description: "ToR Switch 2 eth2 downlink to server-4"
+
+  # ── Storage Rack — Array Controller A (dual host ports for multipath)
+  - source: "storage-router"
+    source_iface: "eth1"
+    target: "array-ctrl-a"
+    target_iface: "eth0"
+    description: "Storage ToR eth1 to Array Controller A host port 1"
+
+  - source: "storage-router"
+    source_iface: "eth2"
+    target: "array-ctrl-a"
+    target_iface: "eth1"
+    description: "Storage ToR eth2 to Array Controller A host port 2"
+
+  # ── Storage Rack — Array Controller B (dual host ports for multipath)
+  - source: "storage-router"
+    source_iface: "eth3"
+    target: "array-ctrl-b"
+    target_iface: "eth0"
+    description: "Storage ToR eth3 to Array Controller B host port 1"
+
+  - source: "storage-router"
+    source_iface: "eth4"
+    target: "array-ctrl-b"
+    target_iface: "eth1"
+    description: "Storage ToR eth4 to Array Controller B host port 2"
+
+  # ── Storage Rack — Object Nodes
+  - source: "storage-router"
+    source_iface: "eth5"
+    target: "obj-node-1"
+    target_iface: "eth0"
+    description: "Storage ToR eth5 to Object Node 1"
+
+  - source: "storage-router"
+    source_iface: "eth6"
+    target: "obj-node-2"
+    target_iface: "eth0"
+    description: "Storage ToR eth6 to Object Node 2"
+
+  - source: "storage-router"
+    source_iface: "eth7"
+    target: "obj-node-3"
+    target_iface: "eth0"
+    description: "Storage ToR eth7 to Object Node 3"
+
+  # ── Controller HA interconnect (direct link, no switch)
+  - source: "array-ctrl-a"
+    source_iface: "ic0"
+    target: "array-ctrl-b"
+    target_iface: "ic0"
+    link_type: "direct"
+    description: "Controller A ↔ B heartbeat and cache mirror (direct InfiniBand)"

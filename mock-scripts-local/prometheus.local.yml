@@ -1,0 +1,12 @@
+global:
+  scrape_interval: 12s
+  evaluation_interval: 12s
+
+scrape_configs:
+  - job_name: "hpe-digital-twin-telemetry-local"
+    static_configs:
+      - targets:
+          - "mock-exporter-droplet1:9100"
+          - "mock-exporter-droplet2:9101"
+          - "mock-exporter-droplet3:9102"
+          - "mock-exporter-droplet4:9103"
