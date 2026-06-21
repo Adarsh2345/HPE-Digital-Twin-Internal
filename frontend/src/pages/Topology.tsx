@@ -30,7 +30,11 @@ function FitViewOnLoad({ count }: { count: number }) {
   useEffect(() => {
     if (count === 0) return
     const timer = setTimeout(() => {
-      fitView({ padding: 0.12, duration: 300 })
+      fitView({
+  padding: 0.02,
+  duration: 300,
+  maxZoom: 1.4,
+})
     }, 80)
     return () => clearTimeout(timer)
   }, [count, fitView])
@@ -173,7 +177,7 @@ function TopologyGraph() {
           )}
         </div>
 
-        <Card title="Node Details" className="w-80 flex-shrink-0 overflow-y-auto">
+        <Card title="Node Details" className="w-72 flex-shrink-0 overflow-y-auto">
           {!selectedId ? (
             <p className="text-sm text-muted">Select a node in the graph</p>
           ) : detailError ? (

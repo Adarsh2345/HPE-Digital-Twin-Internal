@@ -41,7 +41,7 @@ function TopologyNodeComponent({ data, selected }: NodeProps<TopologyFlowNode>) 
   return (
     <div
       className="relative flex flex-col items-center"
-      style={{ width: 100 }}
+      style={{ width: 140}}
     >
       <Handle type="target" position={Position.Top} className="!bg-border !w-2 !h-2 !border-0" />
       <div
@@ -52,18 +52,18 @@ function TopologyNodeComponent({ data, selected }: NodeProps<TopologyFlowNode>) 
           boxShadow: selected
             ? `0 0 16px ${colors.glow}`
             : `0 0 8px ${isCritical ? 'rgba(248,113,113,0.3)' : colors.glow}`,
-          minWidth: 88,
+          minWidth: 130,
         }}
       >
-        <div className="text-[11px] font-semibold text-white leading-tight break-words">
+        <div className="text-sm font-semibold text-white leading-tight break-words">
           {nodeData.label}
         </div>
-        <div className="text-[9px] text-muted mt-0.5 leading-tight">
+        <div className="text-[10px] text-muted mt-0.5 leading-tight">
           {nodeData.role.replace(/-/g, ' ')}
         </div>
       </div>
       <span
-        className={`badge text-[8px] mt-1 capitalize ${stateBadgeClass(nodeData.state)}`}
+        className={`badge text-[10px] mt-1 capitalize ${stateBadgeClass(nodeData.state)}`}
       >
         {nodeData.state}
       </span>
