@@ -128,6 +128,7 @@ export default function SimulationPage() {
     }
   }
 
+
   const downtimeMinutes =
     result?.projections?.length
       ? Math.ceil((result.projections.length * TELEMETRY_INTERVAL_SECONDS) / 60)
@@ -234,11 +235,13 @@ export default function SimulationPage() {
               label="Estimated Downtime"
               value={downtimeMinutes != null ? `${downtimeMinutes} minutes` : '—'}
             />
+
             <ResultField
               label="Recommendation"
               value={result.recommendations[0] ?? result.warnings[0] ?? (result.allowed ? 'No action required' : 'Review violations')}
             />
           </div>
+
 
           {result.projections.length > 0 && (
             <ProjectionSteps projections={result.projections} />
