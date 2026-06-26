@@ -19,7 +19,8 @@ const navItems = [
 
 const stackLinks = [
   { label: 'Prometheus', url: import.meta.env.VITE_PROMETHEUS_URL },
-  { label: 'Grafana', url: import.meta.env.VITE_GRAFANA_URL },
+
+
   { label: 'InfluxDB', url: import.meta.env.VITE_INFLUXDB_URL },
 ]
 

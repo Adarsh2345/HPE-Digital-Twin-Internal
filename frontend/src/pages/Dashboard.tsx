@@ -130,9 +130,9 @@ export default function Dashboard() {
     const allEntries = Object.entries(nodes) as NodeEntry[]
     const metricEntries = allEntries.filter(([, n]) => hasMetricData(n.metrics))
 
-    const serverCount = allEntries.filter(
-      ([, n]) => n.metrics?.role === 'compute-node',
-    ).length
+    const serverCount = allEntries.filter(([id]) =>
+  /server-\d+$/i.test(id)
+).length
 
     const alertCount = allEntries.filter(
       ([, n]) => n.state === 'warning' || n.state === 'critical',

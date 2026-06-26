@@ -45,10 +45,10 @@ export default function Header({ search, onSearchChange }: HeaderProps) {
 
         <div className="flex items-center gap-2.5 pl-2 border-l border-border">
           <div className="w-8 h-8 rounded-full bg-gradient-to-br from-accent to-blue-500 flex items-center justify-center text-xs font-bold text-bg">
-            S
+            C
           </div>
           <div className="text-xs">
-            <div className="font-medium text-gray-200">Sowmithra</div>
+           
             <div className="text-muted">Cloud Operator</div>
           </div>
         </div>

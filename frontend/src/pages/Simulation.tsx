@@ -8,7 +8,7 @@ import {
   formatNumber,
   riskFromSimulation,
   severityBadgeClass,
-  shortNodeId,
+  
 } from '../utils/format'
 
 const TELEMETRY_INTERVAL_SECONDS = 12
@@ -128,8 +128,6 @@ export default function SimulationPage() {
     }
   }
 
-  const affectedServices = getAffectedServices(result)
-  const blastRadius = affectedServices.length || getBlastRadiusCount(result)
   const downtimeMinutes =
     result?.projections?.length
       ? Math.ceil((result.projections.length * TELEMETRY_INTERVAL_SECONDS) / 60)
@@ -236,57 +234,14 @@ export default function SimulationPage() {
               label="Estimated Downtime"
               value={downtimeMinutes != null ? `${downtimeMinutes} minutes` : '—'}
             />
-            <ResultField label="Blast Radius" value={`${blastRadius} services`} />
-            <ResultField
-              label="Verdict"
-              value={result.verdict}
-            />
             <ResultField
               label="Recommendation"
               value={result.recommendations[0] ?? result.warnings[0] ?? (result.allowed ? 'No action required' : 'Review violations')}
             />
           </div>
 
-          {affectedServices.length > 0 && (
-            <div>
-              <p className="text-xs text-muted mb-2">Affected Services</p>
-              <div className="flex flex-wrap gap-2">
-                {affectedServices.map((s) => (
-                  <span
-                    key={s}
-                    className="text-xs px-2.5 py-1 rounded-full bg-red-500/15 text-red-300 border border-red-500/20"
-                  >
-                    {shortNodeId(s)}
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
-
           {result.projections.length > 0 && (
-            <div className="mt-4">
-              <p className="text-xs text-muted mb-2">Projections ({result.projections.length} steps)</p>
-              <div className="overflow-x-auto">
-                <table className="w-full text-xs">
-                  <thead>
-                    <tr>
-                      <th className="table-head">Step</th>
-                      <th className="table-head">Data</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {result.projections.map((p, i) => (
-                      <tr key={i}>
-                        <td className="table-cell">{i + 1}</td>
-                        <td className="table-cell font-mono text-muted">
-                          {JSON.stringify(p).slice(0, 120)}...
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
+            <ProjectionSteps projections={result.projections} />
           )}
 
           {Object.keys(result.tier_results).length > 0 && (
@@ -400,6 +355,102 @@ export default function SimulationPage() {
   )
 }
 
+// ─── Projection Steps Component ──────────────────────────────────────────────
+
+function ProjectionSteps({ projections }: { projections: unknown[] }) {
+  const [viewJson, setViewJson] = useState(false)
+
+  return (
+    <div className="mt-4">
+      <div className="flex items-center justify-between mb-3">
+        <p className="text-xs text-muted">Projections ({projections.length} steps)</p>
+        <button
+          type="button"
+          onClick={() => setViewJson((v) => !v)}
+          className="text-xs text-accent hover:text-accent/80 border border-accent/30 hover:border-accent/60 rounded px-2 py-0.5 transition"
+        >
+          {viewJson ? 'View friendly' : 'View as JSON'}
+        </button>
+      </div>
+
+      {viewJson ? (
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs">
+            <thead>
+              <tr>
+                <th className="table-head">Step</th>
+                <th className="table-head">Data</th>
+              </tr>
+            </thead>
+            <tbody>
+              {projections.map((p, i) => (
+                <tr key={i}>
+                  <td className="table-cell">{i + 1}</td>
+                  <td className="table-cell font-mono text-muted">
+                    {JSON.stringify(p).slice(0, 120)}...
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {projections.map((p, i) => {
+            const step = p as { step?: number; nodes?: Record<string, Record<string, number>> }
+            const nodes = step.nodes ?? {}
+            const nodeEntries = Object.entries(nodes)
+
+            return (
+              <div key={i} className="rounded-lg border border-border bg-surface3 px-4 py-3">
+                <p className="text-xs font-semibold text-white mb-2">Step {i + 1}</p>
+                <div className="space-y-3">
+                  {nodeEntries.map(([nodeName, metrics]) => (
+                    <div key={nodeName}>
+                      <p className="text-[11px] text-accent font-medium mb-1.5 truncate">{nodeName}</p>
+                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-x-4 gap-y-1.5">
+                        {typeof metrics.cpu_percent === 'number' && (
+                          <MetricPill label="CPU" value={`${metrics.cpu_percent.toFixed(1)}%`} warn={metrics.cpu_percent > 70} />
+                        )}
+                        {typeof metrics.memory_percent === 'number' && (
+                          <MetricPill label="Memory" value={`${metrics.memory_percent.toFixed(1)}%`} warn={metrics.memory_percent > 80} />
+                        )}
+                        {typeof metrics.power_watts === 'number' && (
+                          <MetricPill label="Power" value={`${metrics.power_watts.toFixed(0)} W`} />
+                        )}
+                        {typeof metrics.disk_iops === 'number' && (
+                          <MetricPill label="Disk IOPS" value={metrics.disk_iops.toFixed(0)} />
+                        )}
+                        {typeof metrics.latency_ms === 'number' && (
+                          <MetricPill label="Latency" value={`${metrics.latency_ms.toFixed(1)} ms`} warn={metrics.latency_ms > 50} />
+                        )}
+                        {typeof metrics.packet_loss_percent === 'number' && (
+                          <MetricPill label="Packet Loss" value={`${metrics.packet_loss_percent.toFixed(2)}%`} warn={metrics.packet_loss_percent > 0.5} />
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function MetricPill({ label, value, warn = false }: { label: string; value: string; warn?: boolean }) {
+  return (
+    <div className="flex flex-col">
+      <span className="text-[10px] text-muted">{label}</span>
+      <span className={`text-xs font-medium ${warn ? 'text-yellow-400' : 'text-gray-300'}`}>{value}</span>
+    </div>
+  )
+}
+
+// ─── Result Field ─────────────────────────────────────────────────────────────
+
 function ResultField({ label, value }: { label: string; value: ReactNode }) {
   return (
     <div>
@@ -409,40 +460,8 @@ function ResultField({ label, value }: { label: string; value: ReactNode }) {
   )
 }
 
-function getAffectedServices(result: SimulationResult | null): string[] {
-  if (!result) return []
-  const services = new Set<string>()
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
-  for (const sr of result.scenario_results) {
-    if (sr.passed === false) {
-      const id = sr.scenario ?? sr.node_id
-      if (typeof id === 'string') services.add(id)
-    }
-  }
-
-  const impact = result.impact_predictions
-  if (impact.nodes_affected && Array.isArray(impact.nodes_affected)) {
-    for (const n of impact.nodes_affected) {
-      if (typeof n === 'string') services.add(n)
-    }
-  }
-
-  for (const key of Object.keys(impact)) {
-    if (key.includes('/') || key.includes('server') || key.includes('prometheus') || key.includes('grafana')) {
-      services.add(key)
-    }
-  }
-
-  return [...services]
-}
-
-function getBlastRadiusCount(result: SimulationResult | null): number {
-  if (!result) return 0
-  const impact = result.impact_predictions
-  if (typeof impact.nodes_affected === 'number') return impact.nodes_affected
-  if (Array.isArray(impact.nodes_affected)) return impact.nodes_affected.length
-  return result.scenario_results.filter((s) => s.passed === false).length
-}
 
 function extractBaselineNodeMetrics(result: SimulationResult): NodeMetrics[] {
   if (result.projections.length > 0) {

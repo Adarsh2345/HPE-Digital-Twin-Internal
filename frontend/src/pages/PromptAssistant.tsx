@@ -169,9 +169,7 @@ export default function PromptAssistantPage() {
             </dl>
             <div className="mt-4">
               <p className="text-xs text-muted mb-2">Parameters</p>
-              <pre className="text-xs font-mono text-gray-400 bg-surface3 rounded-lg p-3 overflow-x-auto">
-                {JSON.stringify(resolveResult.simulation_report.params, null, 2)}
-              </pre>
+              <ParametersDisplay params={resolveResult.simulation_report.params} />
             </div>
           </Card>
 
@@ -316,6 +314,8 @@ export default function PromptAssistantPage() {
   )
 }
 
+// ─── Helper components ────────────────────────────────────────────────────────
+
 function Field({
   label,
   value,
@@ -348,6 +348,68 @@ function SummaryTile({
       <div className={`text-sm font-medium text-white ${mono ? 'font-mono text-xs truncate' : ''}`}>
         {value}
       </div>
+    </div>
+  )
+}
+
+function ParametersDisplay({ params }: { params: Record<string, unknown> }) {
+  if (!params || Object.keys(params).length === 0) {
+    return <p className="text-xs text-muted">No parameters.</p>
+  }
+
+  const isTarget = (key: string) =>
+    key.toLowerCase().includes('target') || key.toLowerCase().includes('router')
+
+  const isSource = (key: string) =>
+    key.toLowerCase().includes('server') && !key.toLowerCase().includes('target')
+
+  const getBadgeClass = (key: string) => {
+    if (isTarget(key)) return 'bg-green-500/15 text-green-400 border border-green-500/20'
+    if (isSource(key)) return 'bg-blue-500/15 text-blue-400 border border-blue-500/20'
+    return 'bg-surface3 text-gray-300 border border-border'
+  }
+
+  const formatValue = (value: unknown) => String(value).replace(/\//g, ' / ')
+
+  const sourceKeys = Object.keys(params).filter(isSource)
+  const targetKeys = Object.keys(params).filter(isTarget)
+  const otherKeys = Object.keys(params).filter((k) => !isSource(k) && !isTarget(k))
+  const orderedKeys = [...sourceKeys, ...targetKeys, ...otherKeys]
+
+  return (
+    <div className="rounded-lg overflow-hidden border border-border">
+      <div className="divide-y divide-border">
+        {orderedKeys.map((key) => (
+          <div
+            key={key}
+            className="flex items-center gap-3 px-3 py-2.5 bg-surface3 hover:bg-surface2 transition-colors"
+          >
+            <span className="text-xs text-muted font-mono w-36 flex-shrink-0 truncate">
+              {key}
+            </span>
+            <span className={`text-xs font-mono px-2 py-0.5 rounded ${getBadgeClass(key)}`}>
+              {formatValue(String(params[key]))}
+            </span>
+          </div>
+        ))}
+      </div>
+
+      {(sourceKeys.length > 0 || targetKeys.length > 0) && (
+        <div className="flex gap-4 px-3 py-2 bg-surface2 border-t border-border">
+          {sourceKeys.length > 0 && (
+            <div className="flex items-center gap-1.5">
+              <span className="w-2.5 h-2.5 rounded-sm bg-blue-500/15 border border-blue-500/20 inline-block" />
+              <span className="text-xs text-muted">Source</span>
+            </div>
+          )}
+          {targetKeys.length > 0 && (
+            <div className="flex items-center gap-1.5">
+              <span className="w-2.5 h-2.5 rounded-sm bg-green-500/15 border border-green-500/20 inline-block" />
+              <span className="text-xs text-muted">Target</span>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   )
 }
