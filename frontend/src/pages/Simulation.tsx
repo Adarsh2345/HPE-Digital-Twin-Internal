@@ -460,7 +460,6 @@ function ResultField({ label, value }: { label: string; value: ReactNode }) {
   )
 }
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
 
 
 function extractBaselineNodeMetrics(result: SimulationResult): NodeMetrics[] {
