@@ -1,0 +1,65 @@
+{
+  "droplet-1-tor1": {
+    "devices": [
+      {"id": "server-1", "role": "compute-node"},
+      {"id": "server-2", "role": "compute-node"},
+      {"id": "router-1", "role": "tor-router"},
+      {"id": "node-exporter", "role": "metrics-exporter"},
+      {"id": "cadvisor", "role": "container-metrics"}
+    ],
+    "edges": [
+      ["router-1", "server-1"],
+      ["router-1", "server-2"]
+    ]
+  },
+  "droplet-2-tor2": {
+    "devices": [
+      {"id": "server-3", "role": "compute-node"},
+      {"id": "server-4", "role": "compute-node"},
+      {"id": "router-2", "role": "tor-router"},
+      {"id": "node-exporter", "role": "metrics-exporter"},
+      {"id": "cadvisor", "role": "container-metrics"}
+    ],
+    "edges": [
+      ["router-2", "server-3"],
+      ["router-2", "server-4"]
+    ]
+  },
+  "droplet-3-mgmt": {
+    "devices": [
+      {"id": "netbox", "role": "infrastructure-docs"},
+      {"id": "neo4j", "role": "graph-database"},
+      {"id": "python-app", "role": "middleware"},
+      {"id": "spine-router", "role": "spine-switch"},
+      {"id": "prometheus", "role": "metrics-collector"},
+      {"id": "grafana", "role": "metrics-dashboard"},
+      {"id": "node-exporter", "role": "metrics-exporter"},
+      {"id": "cadvisor", "role": "container-metrics"}
+    ],
+    "edges": [
+      ["spine-router", "router-1"],
+      ["spine-router", "router-2"],
+      ["spine-router", "storage-router"]
+    ]
+  },
+  "droplet-4-storage": {
+    "devices": [
+      {"id": "storage-router", "role": "storage-tor"},
+      {"id": "array-ctrl-a", "role": "storage-controller"},
+      {"id": "array-ctrl-b", "role": "storage-controller"},
+      {"id": "obj-node-1", "role": "object-storage"},
+      {"id": "obj-node-2", "role": "object-storage"},
+      {"id": "obj-node-3", "role": "object-storage"},
+      {"id": "node-exporter", "role": "metrics-exporter"},
+      {"id": "cadvisor", "role": "container-metrics"}
+    ],
+    "edges": [
+      ["storage-router", "array-ctrl-a"],
+      ["storage-router", "array-ctrl-b"],
+      ["storage-router", "obj-node-1"],
+      ["storage-router", "obj-node-2"],
+      ["storage-router", "obj-node-3"],
+      ["array-ctrl-a", "array-ctrl-b"]
+    ]
+  }
+}
