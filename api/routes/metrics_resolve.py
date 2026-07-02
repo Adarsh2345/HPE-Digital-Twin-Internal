@@ -54,7 +54,7 @@ def resolve_metrics(payload: dict = Body(...)):
         request_dict.pop("parser_used", None)
         request_dict.pop("requested_by", None)
 
-        simulation_params = _simulation_params(request_dict)
+        simulation_params = _simulation_params(request_dict, base_graph=base_graph)
 
         # 3. Core Phase 3 Sandbox processing — Isolated Clone mutations
         sim_result = _simulator.run(
@@ -119,9 +119,17 @@ def resolve_metrics(payload: dict = Body(...)):
         raise HTTPException(status_code=503, detail=str(exc)) from None
 
 
-def _simulation_params(request_dict: dict) -> dict:
+def _simulation_params(request_dict: dict, base_graph=None) -> dict:
     """Remap NLP/schema field names to mutator-compatible keys (mirrors simulation.py)."""
     params = dict(request_dict)
+    _RACK_TO_ROUTER = {
+        "droplet-1-tor1": "droplet-1-tor1/router-1",
+        "droplet-2-tor2": "droplet-2-tor2/router-2",
+    }
+    if "target_rack_id" in params and "target_router_id" not in params:
+        rack = params["target_rack_id"]
+        if rack in _RACK_TO_ROUTER:
+            params["target_router_id"] = _RACK_TO_ROUTER[rack]
     if "target_router_id" in params:
         params["target_router"] = params["target_router_id"]
         params["router_id"] = params["target_router_id"]
@@ -141,7 +149,24 @@ def _simulation_params(request_dict: dict) -> dict:
         params["power_watts"] = params.pop("power_w")
     if "packet_loss_pct" in params:
         params["packet_loss_percent"] = params.pop("packet_loss_pct")
+
+    # For add_compute: auto-generate node_id if the LLM didn't supply one
+    if params.get("node_id") is None and base_graph is not None:
+        params["node_id"] = _next_server_id(base_graph)
+
     return params
+
+
+def _next_server_id(G) -> str:
+    """Find the next available server-N name not already in the graph."""
+    existing = {
+        n.split("/")[-1] for n in G.nodes
+        if n.split("/")[-1].startswith("server-")
+    }
+    i = 1
+    while f"server-{i}" in existing:
+        i += 1
+    return f"server-{i}"
 
 
 def _validation_errors(exc):

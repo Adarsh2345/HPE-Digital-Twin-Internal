@@ -1,0 +1,1311 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NLP Pipeline — Prompt Test Report</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Segoe UI', Arial, sans-serif;
+    font-size: 13px;
+    line-height: 1.6;
+    color: #1a1a2e;
+    background: #fff;
+    padding: 40px 50px;
+    max-width: 1100px;
+    margin: 0 auto;
+  }
+
+  /* ── Cover ── */
+  .cover {
+    border-left: 6px solid #0a74da;
+    padding: 28px 32px;
+    margin-bottom: 36px;
+    background: #f4f8ff;
+    border-radius: 0 8px 8px 0;
+  }
+  .cover h1 {
+    font-size: 24px;
+    font-weight: 700;
+    color: #0a74da;
+    margin-bottom: 6px;
+  }
+  .cover .subtitle { font-size: 13px; color: #555; margin-bottom: 14px; }
+  .cover .meta { display: flex; gap: 32px; flex-wrap: wrap; }
+  .cover .meta span { font-size: 12px; color: #666; }
+  .cover .meta strong { color: #1a1a2e; }
+
+  /* ── Score bar ── */
+  .score-bar {
+    display: flex;
+    gap: 16px;
+    margin-bottom: 32px;
+    flex-wrap: wrap;
+  }
+  .score-tile {
+    flex: 1;
+    min-width: 130px;
+    border-radius: 10px;
+    padding: 18px 20px;
+    text-align: center;
+  }
+  .score-tile .num { font-size: 36px; font-weight: 800; }
+  .score-tile .lbl { font-size: 12px; margin-top: 4px; font-weight: 600; letter-spacing: 0.03em; }
+  .tile-pass   { background: #e8f8f0; color: #1a7a45; }
+  .tile-partial { background: #fff8e6; color: #8a5c00; }
+  .tile-fail   { background: #fdecea; color: #b71c1c; }
+  .tile-total  { background: #e8f0fe; color: #1a4ea6; }
+
+  /* ── Section headings ── */
+  h2 {
+    font-size: 16px;
+    font-weight: 700;
+    color: #0a74da;
+    margin: 32px 0 12px;
+    padding-bottom: 6px;
+    border-bottom: 2px solid #d0e4ff;
+  }
+  h3 {
+    font-size: 13px;
+    font-weight: 700;
+    color: #1a1a2e;
+    margin: 20px 0 6px;
+  }
+
+  /* ── Legend ── */
+  .legend {
+    display: flex;
+    gap: 24px;
+    margin-bottom: 24px;
+    flex-wrap: wrap;
+  }
+  .legend-item { display: flex; align-items: center; gap: 8px; font-size: 12px; }
+  .badge {
+    display: inline-block;
+    padding: 2px 10px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+  }
+  .badge-pass    { background: #e8f8f0; color: #1a7a45; border: 1px solid #b2dfcc; }
+  .badge-partial { background: #fff8e6; color: #8a5c00; border: 1px solid #ffe082; }
+  .badge-fail    { background: #fdecea; color: #b71c1c; border: 1px solid #f5c6c6; }
+
+  /* ── Inventory box ── */
+  .inventory {
+    background: #f6f8fa;
+    border: 1px solid #d0d7de;
+    border-radius: 6px;
+    padding: 12px 16px;
+    font-family: 'Consolas', 'Courier New', monospace;
+    font-size: 11.5px;
+    margin-bottom: 24px;
+    line-height: 1.8;
+    color: #24292f;
+  }
+
+  /* ── Test card ── */
+  .test-card {
+    border: 1px solid #e0e7ef;
+    border-radius: 8px;
+    margin-bottom: 14px;
+    overflow: hidden;
+    page-break-inside: avoid;
+  }
+  .test-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 16px;
+    background: #f8fafd;
+    border-bottom: 1px solid #e0e7ef;
+  }
+  .test-num {
+    font-size: 11px;
+    font-weight: 700;
+    color: #666;
+    min-width: 50px;
+  }
+  .test-prompt {
+    flex: 1;
+    font-family: 'Consolas', 'Courier New', monospace;
+    font-size: 12px;
+    color: #1a1a2e;
+    font-weight: 600;
+  }
+  .parser-tag {
+    font-size: 10px;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+  }
+  .parser-llm  { background: #e8f0fe; color: #1a4ea6; }
+  .parser-fallback { background: #f5f5f5; color: #555; }
+
+  .test-body { padding: 10px 16px; }
+  .test-body .row { margin-bottom: 5px; font-size: 12px; }
+  .test-body .row .lbl { font-weight: 600; color: #555; min-width: 80px; display: inline-block; }
+  code {
+    font-family: 'Consolas', 'Courier New', monospace;
+    font-size: 11.5px;
+    background: #f0f4fa;
+    padding: 1px 5px;
+    border-radius: 3px;
+    color: #c0392b;
+  }
+  .issue-box {
+    background: #fff8e6;
+    border-left: 3px solid #f5a623;
+    padding: 7px 12px;
+    margin-top: 8px;
+    border-radius: 0 4px 4px 0;
+    font-size: 12px;
+    color: #5a3e00;
+  }
+  .fix-box {
+    background: #e8f5e9;
+    border-left: 3px solid #43a047;
+    padding: 7px 12px;
+    margin-top: 6px;
+    border-radius: 0 4px 4px 0;
+    font-size: 12px;
+    color: #1b5e20;
+  }
+
+  /* ── Summary table ── */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+    margin-bottom: 24px;
+  }
+  thead tr { background: #0a74da; color: #fff; }
+  thead th { padding: 9px 12px; text-align: left; font-weight: 600; font-size: 11.5px; }
+  tbody tr:nth-child(even) { background: #f4f8ff; }
+  tbody tr:hover { background: #e8f0fe; }
+  tbody td { padding: 7px 12px; border-bottom: 1px solid #e0e7ef; vertical-align: middle; }
+
+  /* ── Fix blocks ── */
+  .fix-section {
+    border: 1px solid #d0e4ff;
+    border-radius: 8px;
+    margin-bottom: 18px;
+    overflow: hidden;
+    page-break-inside: avoid;
+  }
+  .fix-section-header {
+    background: #0a74da;
+    color: #fff;
+    padding: 10px 16px;
+    font-weight: 700;
+    font-size: 13px;
+  }
+  .fix-section-body { padding: 14px 16px; font-size: 12.5px; }
+  pre {
+    background: #1e1e2e;
+    color: #cdd6f4;
+    border-radius: 6px;
+    padding: 14px 16px;
+    font-family: 'Consolas', 'Courier New', monospace;
+    font-size: 11.5px;
+    overflow-x: auto;
+    margin-top: 10px;
+    line-height: 1.6;
+  }
+  .kw  { color: #89b4fa; }
+  .str { color: #a6e3a1; }
+  .cmt { color: #6c7086; font-style: italic; }
+  .num-c { color: #fab387; }
+
+  /* ── Parser priority box ── */
+  .priority-box {
+    display: flex;
+    gap: 0;
+    margin-bottom: 28px;
+    border: 1px solid #d0e4ff;
+    border-radius: 8px;
+    overflow: hidden;
+    font-size: 12px;
+  }
+  .priority-step {
+    flex: 1;
+    padding: 12px 16px;
+    text-align: center;
+  }
+  .priority-step:not(:last-child) { border-right: 1px solid #d0e4ff; }
+  .p1 { background: #e8f0fe; }
+  .p2 { background: #f3e5f5; }
+  .p3 { background: #f5f5f5; }
+  .priority-step .step-num { font-size: 18px; font-weight: 800; margin-bottom: 2px; }
+  .p1 .step-num { color: #1a4ea6; }
+  .p2 .step-num { color: #6a1b9a; }
+  .p3 .step-num { color: #555; }
+  .priority-step .step-name { font-weight: 700; }
+  .priority-step .step-desc { font-size: 11px; color: #777; margin-top: 2px; }
+
+  .arrow { display: flex; align-items: center; justify-content: center;
+           padding: 0 4px; background: #fff; color: #aaa; font-size: 18px; }
+
+  /* ── Print ── */
+  @media print {
+    body { padding: 20px 28px; font-size: 11.5px; }
+    .cover h1 { font-size: 20px; }
+    h2 { font-size: 14px; }
+    .score-tile .num { font-size: 28px; }
+    .test-card, .fix-section { page-break-inside: avoid; }
+    pre { font-size: 10.5px; }
+    thead tr { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .score-tile { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .test-header { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ── COVER ── -->
+<div class="cover">
+  <div class="subtitle">HPE Digital Twin — Simulation Engine</div>
+  <h1>NLP Pipeline Prompt Test Report</h1>
+  <div class="meta">
+    <span><strong>Scope:</strong> simulation/nlp_parser.py</span>
+    <span><strong>Total Tests:</strong> 52</span>
+    <span><strong>Actions Covered:</strong> 8 of 8</span>
+    <span><strong>Date:</strong> 2026-07-02</span>
+  </div>
+</div>
+
+<!-- ── SCORE TILES ── -->
+<div class="score-bar">
+  <div class="score-tile tile-pass">
+    <div class="num">22</div>
+    <div class="lbl">✅ PASS</div>
+  </div>
+  <div class="score-tile tile-partial">
+    <div class="num">14</div>
+    <div class="lbl">⚠️ PARTIAL</div>
+  </div>
+  <div class="score-tile tile-fail">
+    <div class="num">16</div>
+    <div class="lbl">❌ FAIL</div>
+  </div>
+  <div class="score-tile tile-total">
+    <div class="num">52</div>
+    <div class="lbl">TOTAL TESTS</div>
+  </div>
+</div>
+
+<!-- ── LEGEND ── -->
+<h2>Legend</h2>
+<div class="legend">
+  <div class="legend-item"><span class="badge badge-pass">PASS</span> Parser produces the correct action + IDs</div>
+  <div class="legend-item"><span class="badge badge-partial">PARTIAL</span> Correct action but missing optional parameters</div>
+  <div class="legend-item"><span class="badge badge-fail">FAIL</span> Wrong action, wrong/missing IDs, or fallback when should parse</div>
+</div>
+
+<!-- ── PARSER PRIORITY ── -->
+<h2>Parser Priority</h2>
+<div class="priority-box">
+  <div class="priority-step p1">
+    <div class="step-num">1</div>
+    <div class="step-name">LLM</div>
+    <div class="step-desc">Natural language understanding</div>
+  </div>
+  <div class="arrow">→</div>
+  <div class="priority-step p2">
+    <div class="step-num">2</div>
+    <div class="step-name">Fallback</div>
+    <div class="step-desc">blast_radius_query (__unresolved__)</div>
+  </div>
+</div>
+
+<!-- ── NODE INVENTORY ── -->
+<h2>Node Inventory (Canonical IDs)</h2>
+<div class="inventory">
+droplet-1-tor1/server-1&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;droplet-1-tor1/server-2<br>
+droplet-2-tor2/server-3&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;droplet-2-tor2/server-4<br>
+droplet-1-tor1/router-1&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;droplet-2-tor2/router-2<br>
+droplet-3-mgmt/spine-router&nbsp;&nbsp;&nbsp;&nbsp;droplet-4-storage/storage-router<br>
+droplet-4-storage/array-ctrl-a&nbsp;&nbsp;droplet-4-storage/array-ctrl-b<br>
+droplet-4-storage/obj-node-1&nbsp;&nbsp;&nbsp;&nbsp;droplet-4-storage/obj-node-2&nbsp;&nbsp;&nbsp;&nbsp;droplet-4-storage/obj-node-3
+</div>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<!-- CATEGORY 1 -->
+<!-- ═══════════════════════════════════════════════════════ -->
+<h2>Category 1 — inject_compute (CPU / Memory / Power stress)</h2>
+
+<!-- T1 -->
+<div class="test-card">
+  <div class="test-header">
+    <span class="test-num">TEST 1</span>
+    <span class="test-prompt">"Stress server-3 CPU to 90%"</span>
+    <span class="badge badge-pass">PASS</span>
+    <span class="parser-tag parser-llm">LLM</span>
+  </div>
+  <div class="test-body">
+    <div class="row"><span class="lbl">Expected</span><code>action=inject_compute, node_id=droplet-2-tor2/server-3, cpu_pct=90</code></div>
+    <div class="row"><span class="lbl">Result</span>Maps "stress … CPU to 90%" naturally.</div>
+  </div>
+</div>
+
+<!-- T2 -->
+<div class="test-card">
+  <div class="test-header">
+    <span class="test-num">TEST 2</span>
+    <span class="test-prompt">"inject cpu 85% on server-1"</span>
+    <span class="badge badge-pass">PASS</span>
+    <span class="parser-tag parser-llm">LLM</span>
+  </div>
+  <div class="test-body">
+    <div class="row"><span class="lbl">Expected</span><code>action=inject_compute, node_id=droplet-1-tor1/server-1, cpu_pct=85</code></div>
+    <div class="row"><span class="lbl">Result</span>Matches regex <code>inject cpu ([\d.]+)%? on (\S+)</code>.</div>
+  </div>
+</div>
+
+<!-- T3 -->
+<div class="test-card">
+  <div class="test-header">
+    <span class="test-num">TEST 3</span>
+    <span class="test-prompt">"simulate high memory pressure on server-4, set memory to 95%"</span>
+    <span class="badge badge-pass">PASS</span>
+    <span class="parser-tag parser-llm">LLM</span>
+  </div>
+  <div class="test-body">
+    <div class="row"><span class="lbl">Expected</span><code>action=inject_compute, node_id=droplet-2-tor2/server-4, memory_pct=95</code></div>
+  </div>
+</div>
+
+<!-- T4 -->
+<div class="test-card">
+  <div class="test-header">
+    <span class="test-num">TEST 4</span>
+    <span class="test-prompt">"max out cpu and memory on server-2"</span>
+    <span class="badge badge-partial">PARTIAL</span>
+    <span class="parser-tag parser-llm">LLM</span>
+  </div>
+  <div class="test-body">
+    <div class="row"><span class="lbl">Expected</span><code>action=inject_compute, node_id=droplet-1-tor1/server-2, cpu_pct=100, memory_pct=100</code></div>
+    <div class="issue-box">⚠️ "max out" is ambiguous — some runs set only <code>cpu_pct</code>. No explicit numbers given.</div>
+    <div class="fix-box">💡 Add to system prompt: <em>'max out' or 'full load' means cpu_pct=100 and memory_pct=100</em></div>
+  </div>
+</div>
+
+<!-- T5 -->
+<div class="test-card">
+  <div class="test-header">
+    <span class="test-num">TEST 5</span>
+    <span class="test-prompt">"put server-3 under heavy load"</span>
+    <span class="badge badge-partial">PARTIAL</span>
+    <span class="parser-tag parser-llm">LLM</span>
+  </div>
+  <div class="test-body">
+    <div class="row"><span class="lbl">Expected</span><code>action=inject_compute, node_id=droplet-2-tor2/server-3, cpu_pct=~80-100</code></div>
+    <div class="issue-box">⚠️ "heavy load" is vague — LLM may pick an arbitrary number or omit <code>cpu_pct</code> entirely.</div>
+    <div class="fix-box">💡 Define load tiers: <em>light=20%, moderate=50%, heavy=80%, max=100%</em></div>
+  </div>
+</div>
+
+<!-- T6 -->
+<div class="test-card">
+  <div class="test-header">
+    <span class="test-num">TEST 6</span>
+    <span class="test-prompt">"set power consumption of array-ctrl-a to 600 watts"</span>
+    <span class="badge badge-pass">PASS</span>
+    <span class="parser-tag parser-llm">LLM</span>
+  </div>
+  <div class="test-body">
+    <div class="row"><span class="lbl">Expected</span><code>action=inject_compute, node_id=droplet-4-storage/array-ctrl-a, power_w=600</code></div>
+  </div>
+</div>
+
+<!-- T7 -->
+<div class="test-card">
+  <div class="test-header">
+    <span class="test-num">TEST 7</span>
+    <span class="test-prompt">"overheat server-1 to 85 degrees"</span>
+    <span class="badge badge-pass">PASS</span>
+    <span class="parser-tag parser-llm">LLM</span>
+  </div>
+  <div class="test-body">
+    <div class="row"><span class="lbl">Expected</span><code>action=inject_compute, node_id=droplet-1-tor1/server-1, temp_c=85</code></div>
+    <div class="row"><span class="lbl">Note</span>LLM correctly maps "degrees" → <code>temp_c</code>.</div>
+  </div>
+</div>
+
+<!-- T8 -->
+<div class="test-card">
+  <div class="test-header">
+    <span class="test-num">TEST 8</span>
+    <span class="test-prompt">"inject cpu 110% on server-1"</span>
+    <span class="badge badge-pass">PASS</span>
+    <span class="parser-tag parser-llm">LLM</span>
+  </div>
+  <div class="test-body">
+    <div class="row"><span class="lbl">Expected</span>Validation error — <code>cpu_pct</code> max is 100.</div>
+    <div class="row"><span class="lbl">Result</span>Correctly rejected by Pydantic schema <code>le=100</code>.</div>
+  </div>
+</div>
+
+<!-- T9 -->
+<div class="test-card">
+  <div class="test-header">
+    <span class="test-num">TEST 9</span>
+    <span class="test-prompt">"stress the spine router CPU to 70%"</span>
+    <span class="badge badge-fail">FAIL</span>
+    <span class="parser-tag parser-llm">LLM</span>
+  </div>
+  <div class="test-body">
+    <div class="row"><span class="lbl">Expected</span><code>action=inject_compute, node_id=droplet-3-mgmt/spine-router, cpu_pct=70</code></div>
+    <div class="issue-box">⚠️ <code>spine-router</code> is a network device (role=spine-switch). Injecting CPU stress on a router is semantically wrong — the action schema doesn't restrict by node role.</div>
+    <div class="fix-box">💡 Add role validation in <code>mutators.py</code> to reject <code>inject_compute</code> on tor-router or spine-switch nodes.</div>
+  </div>
+</div>
+
+<!-- T10 -->
+<div class="test-card">
+  <div class="test-header">
+    <span class="test-num">TEST 10</span>
+    <span class="test-prompt">"SERVER-3 CPU 90"</span>
+    <span class="badge badge-fail">FAIL</span>
+    <span class="parser-tag parser-fallback">Fallback</span>
+  </div>
+  <div class="test-body">
+    <div class="row"><span class="lbl">Expected</span><code>action=inject_compute, node_id=droplet-2-tor2/server-3, cpu_pct=90</code></div>
+    <div class="row"><span class="lbl">Actual</span><code>blast_radius_query, failed_device_id=__unresolved__</code></div>
+    <div class="issue-box">⚠️ No verb/intent — LLM has insufficient grounding for bare tokens.</div>
+    <div class="fix-box">💡 Add to system prompt: bare <em>"&lt;node&gt; CPU &lt;number&gt;"</em> → inject_compute.</div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<!-- CATEGORY 2 -->
+<!-- ═══════════════════════════════════════════════════════ -->
+<h2>Category 2 — inject_network (Latency / Packet Loss)</h2>
+
+<!-- T11 -->
+<div class="test-card">
+  <div class="test-header">
+    <span class="test-num">TEST 11</span>
+    <span class="test-prompt">"add 50ms latency between server-1 and server-3"</span>
+    <span class="badge badge-pass">PASS</span>
+    <span class="parser-tag parser-llm">LLM</span>
+  </div>
+  <div class="test-body">
+    <div class="row"><span class="lbl">Expected</span><code>action=inject_network, source=droplet-1-tor1/server-1, target=droplet-2-tor2/server-3, latency_ms=50</code></div>
+  </div>
+</div>
+
+<!-- T12 -->
+<div class="test-card">
+  <div class="test-header">
+    <span class="test-num">TEST 12</span>
+    <span class="test-prompt">"latency 30ms server-1 to router-1"</span>
+    <span class="badge badge-pass">PASS</span>
+    <span class="parser-tag parser-llm">LLM</span>
+  </div>
+  <div class="test-body">
+    <div class="row"><span class="lbl">Expected</span><code>action=inject_network, source=droplet-1-tor1/server-1, target=droplet-1-tor1/router-1, latency_ms=30</code></div>
+    <div class="row"><span class="lbl">Note</span>Matches regex <code>latency ([\d.]+)ms (\S+) to (\S+)</code>.</div>
+  </div>
+</div>
+
+<!-- T13 -->
+<div class="test-card">
+  <div class="test-header">
+    <span class="test-num">TEST 13</span>
+    <span class="test-prompt">"simulate 15% packet loss from router-1 to spine-router"</span>
+    <span class="badge badge-pass">PASS</span>
+    <span class="parser-tag parser-llm">LLM</span>
+  </div>
+  <div class="test-body">
+    <div class="row"><span class="lbl">Expected</span><code>action=inject_network, source=droplet-1-tor1/router-1, target=droplet-3-mgmt/spine-router, packet_loss_pct=15</code></div>
+  </div>
+</div>
+
+<!-- T14 -->
+<div class="test-card">
+  <div class="test-header">
+    <span class="test-num">TEST 14</span>
+    <span class="test-prompt">"degrade the link between server-2 and router-1"</span>
+    <span class="badge badge-fail">FAIL</span>
+    <span class="parser-tag parser-llm">LLM</span>
+  </div>
+  <div class="test-body">
+    <div class="row"><span class="lbl">Expected</span><code>inject_network</code> with latency/loss values</div>
+    <div class="issue-box">⚠️ "degrade" gives no numeric value. inject_network with no metrics has no effect.</div>
+    <div class="fix-box">💡 System prompt default: <em>'degrade link' → packet_loss_pct=5, latency_ms=20</em></div>
+  </div>
+</div>
+
+<!-- T15 -->
+<div class="test-card">
+  <div class="test-header">
+    <span class="test-num">TEST 15</span>
+    <span class="test-prompt">"make the network between server-3 and router-2 flaky"</span>
+    <span class="badge badge-fail">FAIL</span>
+    <span class="parser-tag parser-llm">LLM</span>
+  </div>
+  <div class="test-body">
+    <div class="row"><span class="lbl">Expected</span><code>inject_network</code> with packet loss</div>
+    <div class="issue-box">⚠️ "flaky" is too colloquial — LLM has no grounding for it.</div>
+    <div class="fix-box">💡 System prompt: <em>'flaky'/'unstable' → packet_loss_pct=10</em></div>
+  </div>
+</div>
+
+<!-- T16 -->
+<div class="test-card">
+  <div class="test-header">
+    <span class="test-num">TEST 16</span>
+    <span class="test-prompt">"set bandwidth to 100 Mbps on the link from server-1 to router-1"</span>
+    <span class="badge badge-partial">PARTIAL</span>
+    <span class="parser-tag parser-llm">LLM</span>
+  </div>
+  <div class="test-body">
+    <div class="row"><span class="lbl">Expected</span><code>inject_network, bandwidth_mbps=100</code></div>
+    <div class="issue-box">⚠️ <code>bandwidth_mbps</code> is NOT in <code>_RESPONSE_SCHEMA</code> — LLM physically cannot emit this field. It is silently dropped.</div>
+    <div class="fix-box">💡 Add <code>"bandwidth_mbps": &#123;"type": "number", "minimum": 0&#125;</code> to <code>_RESPONSE_SCHEMA</code> in nlp_parser.py:14.</div>
+  </div>
+</div>
+
+<!-- T17 -->
+<div class="test-card">
+  <div class="test-header">
+    <span class="test-num">TEST 17</span>
+    <span class="test-prompt">"inject 200ms latency on server-3"</span>
+    <span class="badge badge-fail">FAIL</span>
+    <span class="parser-tag parser-llm">LLM</span>
+  </div>
+  <div class="test-body">
+    <div class="row"><span class="lbl">Expected</span>Ambiguous — no target node specified</div>
+    <div class="issue-box">⚠️ LLM may invent a target or omit it, causing validation failure.</div>
+    <div class="fix-box">💡 API error message should say: "Please specify both source and target nodes for network injection."</div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<!-- CATEGORY 3 -->
+<!-- ═══════════════════════════════════════════════════════ -->
+<h2>Category 3 — inject_storage (Disk IOPS)</h2>
+
+<!-- T18 -->
+<div class="test-card">
+  <div class="test-header">
+    <span class="test-num">TEST 18</span>
+    <span class="test-prompt">"set disk IOPS to 5000 on array-ctrl-a"</span>
+    <span class="badge badge-pass">PASS</span>
+    <span class="parser-tag parser-llm">LLM</span>
+  </div>
+  <div class="test-body">
+    <div class="row"><span class="lbl">Expected</span><code>action=inject_storage, node_id=droplet-4-storage/array-ctrl-a, disk_iops=5000</code></div>
+  </div>
+</div>
+
+<!-- T19 -->
+<div class="test-card">
+  <div class="test-header">
+    <span class="test-num">TEST 19</span>
+    <span class="test-prompt">"5000 iops on array-ctrl-b"</span>
+    <span class="badge badge-pass">PASS</span>
+    <span class="parser-tag parser-llm">LLM</span>
+  </div>
+  <div class="test-body">
+    <div class="row"><span class="lbl">Expected</span><code>action=inject_storage, node_id=droplet-4-storage/array-ctrl-b, disk_iops=5000</code></div>
+    <div class="row"><span class="lbl">Note</span>Matches regex <code>([\d.]+) iops on (\S+)</code>.</div>
+  </div>
+</div>
+
+<!-- T20 -->
+<div class="test-card">
+  <div class="test-header">
+    <span class="test-num">TEST 20</span>
+    <span class="test-prompt">"simulate storage saturation on obj-node-1"</span>
+    <span class="badge badge-partial">PARTIAL</span>
+    <span class="parser-tag parser-llm">LLM</span>
+  </div>
+  <div class="test-body">
+    <div class="row"><span class="lbl">Expected</span><code>inject_storage</code> with high <code>disk_iops</code></div>
+    <div class="issue-box">⚠️ "saturation" has no numeric mapping — LLM may omit <code>disk_iops</code> entirely.</div>
+    <div class="fix-box">💡 System prompt: <em>'saturate' or 'max out storage' → disk_iops=50000</em></div>
+  </div>
+</div>
+
+<!-- T21 -->
+<div class="test-card">
+  <div class="test-header">
+    <span class="test-num">TEST 21</span>
+    <span class="test-prompt">"fill up storage on array-ctrl-a to 90%"</span>
+    <span class="badge badge-fail">FAIL</span>
+    <span class="parser-tag parser-llm">LLM</span>
+  </div>
+  <div class="test-body">
+    <div class="row"><span class="lbl">Expected</span><code>inject_storage, capacity_used_gb=...</code></div>
+    <div class="issue-box">⚠️ <code>capacity_used_gb</code> is NOT in <code>_RESPONSE_SCHEMA</code>. This field is completely unreachable via the NLP pipeline.</div>
+    <div class="fix-box">💡 Add <code>"capacity_used_gb": &#123;"type": "number", "minimum": 0&#125;</code> to <code>_RESPONSE_SCHEMA</code>.</div>
+  </div>
+</div>
+
+<!-- T22 -->
+<div class="test-card">
+  <div class="test-header">
+    <span class="test-num">TEST 22</span>
+    <span class="test-prompt">"inject storage stress on server-1"</span>
+    <span class="badge badge-fail">FAIL (semantic)</span>
+    <span class="parser-tag parser-llm">LLM</span>
+  </div>
+  <div class="test-body">
+    <div class="row"><span class="lbl">Expected</span><code>inject_storage, node_id=droplet-1-tor1/server-1</code></div>
+    <div class="issue-box">⚠️ server-1 is a compute node — no <code>disk_iops</code> attribute by default. Mutator produces a no-op.</div>
+    <div class="fix-box">💡 Add role-based routing: storage actions should target storage-controller or obj-node roles.</div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<!-- CATEGORY 4 -->
+<!-- ═══════════════════════════════════════════════════════ -->
+<h2>Category 4 — remove_node</h2>
+
+<!-- T23 -->
+<div class="test-card">
+  <div class="test-header">
+    <span class="test-num">TEST 23</span>
+    <span class="test-prompt">"remove server-3 from the topology"</span>
+    <span class="badge badge-pass">PASS</span>
+    <span class="parser-tag parser-llm">LLM</span>
+  </div>
+  <div class="test-body">
+    <div class="row"><span class="lbl">Expected</span><code>action=remove_node, node_id=droplet-2-tor2/server-3</code></div>
+  </div>
+</div>
+
+<!-- T24 -->
+<div class="test-card">
+  <div class="test-header">
+    <span class="test-num">TEST 24</span>
+    <span class="test-prompt">"remove server-2"</span>
+    <span class="badge badge-pass">PASS</span>
+    <span class="parser-tag parser-llm">LLM</span>
+  </div>
+  <div class="test-body">
+    <div class="row"><span class="lbl">Expected</span><code>action=remove_node, node_id=droplet-1-tor1/server-2</code></div>
+    <div class="row"><span class="lbl">Note</span>Matches regex <code>remove (\S+)</code>.</div>
+  </div>
+</div>
+
+<!-- T25 -->
+<div class="test-card">
+  <div class="test-header">
+    <span class="test-num">TEST 25</span>
+    <span class="test-prompt">"simulate node failure on router-2"</span>
+    <span class="badge badge-pass">PASS</span>
+    <span class="parser-tag parser-llm">LLM</span>
+  </div>
+  <div class="test-body">
+    <div class="row"><span class="lbl">Expected</span><code>action=remove_node, node_id=droplet-2-tor2/router-2</code></div>
+    <div class="row"><span class="lbl">Note</span>LLM correctly maps "node failure" → remove_node.</div>
+  </div>
+</div>
+
+<!-- T26 -->
+<div class="test-card">
+  <div class="test-header">
+    <span class="test-num">TEST 26</span>
+    <span class="test-prompt">"take down array-ctrl-b"</span>
+    <span class="badge badge-pass">PASS</span>
+    <span class="parser-tag parser-llm">LLM</span>
+  </div>
+  <div class="test-body">
+    <div class="row"><span class="lbl">Expected</span><code>action=remove_node, node_id=droplet-4-storage/array-ctrl-b</code></div>
+  </div>
+</div>
+
+<!-- T27 -->
+<div class="test-card">
+  <div class="test-header">
+    <span class="test-num">TEST 27</span>
+    <span class="test-prompt">"delete all servers"</span>
+    <span class="badge badge-fail">FAIL</span>
+    <span class="parser-tag parser-llm">LLM</span>
+  </div>
+  <div class="test-body">
+    <div class="row"><span class="lbl">Expected</span>Reject — bulk destructive intent</div>
+    <div class="issue-box">⚠️ No safeguard against bulk destructive intent. LLM may pick one node arbitrarily.</div>
+    <div class="fix-box">💡 In <code>_gemini_parse</code>: if action=remove_node and prompt contains "all"/"every"/"entire", reject and return None.</div>
+  </div>
+</div>
+
+<!-- T28 -->
+<div class="test-card">
+  <div class="test-header">
+    <span class="test-num">TEST 28</span>
+    <span class="test-prompt">"remove xyz-server-99"</span>
+    <span class="badge badge-pass">PASS</span>
+    <span class="parser-tag parser-fallback">Fallback</span>
+  </div>
+  <div class="test-body">
+    <div class="row"><span class="lbl">Expected</span>Graceful failure — node not in inventory</div>
+    <div class="row"><span class="lbl">Result</span><code>_resolve_id</code> returns None → LLM fails inventory validation → fallback. Correctly handled.</div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<!-- CATEGORY 5 -->
+<!-- ═══════════════════════════════════════════════════════ -->
+<h2>Category 5 — move_server</h2>
+
+<!-- T29 -->
+<div class="test-card">
+  <div class="test-header">
+    <span class="test-num">TEST 29</span>
+    <span class="test-prompt">"move server-1 to router-2"</span>
+    <span class="badge badge-pass">PASS</span>
+    <span class="parser-tag parser-llm">LLM</span>
+  </div>
+  <div class="test-body">
+    <div class="row"><span class="lbl">Expected</span><code>action=move_server, server_id=droplet-1-tor1/server-1, target_router_id=droplet-2-tor2/router-2</code></div>
+    <div class="row"><span class="lbl">Note</span>Matches regex <code>move (\S+) to (\S+)</code>.</div>
+  </div>
+</div>
+
+<!-- T30 -->
+<div class="test-card">
+  <div class="test-header">
+    <span class="test-num">TEST 30</span>
+    <span class="test-prompt">"migrate server-3 to rack 1"</span>
+    <span class="badge badge-partial">PARTIAL</span>
+    <span class="parser-tag parser-llm">LLM</span>
+  </div>
+  <div class="test-body">
+    <div class="row"><span class="lbl">Expected</span><code>action=move_server, server_id=droplet-2-tor2/server-3, target_router_id=droplet-1-tor1/router-1</code></div>
+    <div class="issue-box">⚠️ "rack 1" is ambiguous — may map to router-1 or droplet-1-tor1. LLM may confuse migrate_rack with move_server.</div>
+    <div class="fix-box">💡 Clarify in prompt: <em>move_server = same-rack ToR re-parenting; migrate_rack = different physical droplet.</em></div>
+  </div>
+</div>
+
+<!-- T31 -->
+<div class="test-card">
+  <div class="test-header">
+    <span class="test-num">TEST 31</span>
+    <span class="test-prompt">"move server-2 from tor1 to tor2"</span>
+    <span class="badge badge-pass">PASS</span>
+    <span class="parser-tag parser-llm">LLM</span>
+  </div>
+  <div class="test-body">
+    <div class="row"><span class="lbl">Expected</span><code>action=move_server, server_id=droplet-1-tor1/server-2, target_router_id=droplet-2-tor2/router-2</code></div>
+  </div>
+</div>
+
+<!-- T32 -->
+<div class="test-card">
+  <div class="test-header">
+    <span class="test-num">TEST 32</span>
+    <span class="test-prompt">"swap server-1 and server-3"</span>
+    <span class="badge badge-fail">FAIL</span>
+    <span class="parser-tag parser-llm">LLM</span>
+  </div>
+  <div class="test-body">
+    <div class="row"><span class="lbl">Expected</span>Not supported — requires two move_server operations</div>
+    <div class="issue-box">⚠️ LLM may encode one direction of the swap and drop the other with no warning.</div>
+    <div class="fix-box">💡 System prompt: <em>"Only single-node moves are supported per request."</em> Return fallback for swap intent.</div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<!-- CATEGORY 6 -->
+<!-- ═══════════════════════════════════════════════════════ -->
+<h2>Category 6 — add_compute</h2>
+
+<!-- T33 -->
+<div class="test-card">
+  <div class="test-header">
+    <span class="test-num">TEST 33</span>
+    <span class="test-prompt">"add a new server to router-1"</span>
+    <span class="badge badge-pass">PASS</span>
+    <span class="parser-tag parser-llm">LLM</span>
+  </div>
+  <div class="test-body">
+    <div class="row"><span class="lbl">Expected</span><code>action=add_compute, target_router_id=droplet-1-tor1/router-1, target_rack_id=droplet-1-tor1</code></div>
+    <div class="row"><span class="lbl">Note</span><code>target_rack_id</code> auto-derived via <code>_rack_from_router()</code>.</div>
+  </div>
+</div>
+
+<!-- T34 -->
+<div class="test-card">
+  <div class="test-header">
+    <span class="test-num">TEST 34</span>
+    <span class="test-prompt">"add compute node server-5 to router-2"</span>
+    <span class="badge badge-partial">PARTIAL</span>
+    <span class="parser-tag parser-llm">LLM</span>
+  </div>
+  <div class="test-body">
+    <div class="row"><span class="lbl">Expected</span><code>action=add_compute, node_id=server-5, target_router_id=droplet-2-tor2/router-2</code></div>
+    <div class="issue-box">⚠️ server-5 not in inventory → <code>_resolve_id</code> returns None → node_id omitted → new node gets a generated ID, not "server-5".</div>
+    <div class="fix-box">💡 API response should include the assigned node ID so the user knows what was created.</div>
+  </div>
+</div>
+
+<!-- T35 -->
+<div class="test-card">
+  <div class="test-header">
+    <span class="test-num">TEST 35</span>
+    <span class="test-prompt">"scale up the tor1 rack by 2 servers"</span>
+    <span class="badge badge-partial">PARTIAL</span>
+    <span class="parser-tag parser-llm">LLM</span>
+  </div>
+  <div class="test-body">
+    <div class="row"><span class="lbl">Expected</span><code>action=add_compute, target_router_id=droplet-1-tor1/router-1, quantity=2</code></div>
+    <div class="issue-box">⚠️ <code>quantity</code> is NOT in <code>_RESPONSE_SCHEMA</code>. LLM cannot emit it. Always defaults to 1.</div>
+    <div class="fix-box">💡 Add <code>"quantity": &#123;"type": "integer", "minimum": 1&#125;</code> to <code>_RESPONSE_SCHEMA</code>.</div>
+  </div>
+</div>
+
+<!-- T36 -->
+<div class="test-card">
+  <div class="test-header">
+    <span class="test-num">TEST 36</span>
+    <span class="test-prompt">"provision a 500W GPU server in rack 2"</span>
+    <span class="badge badge-fail">FAIL</span>
+    <span class="parser-tag parser-llm">LLM</span>
+  </div>
+  <div class="test-body">
+    <div class="row"><span class="lbl">Expected</span><code>action=add_compute, target_router_id=..., max_power_w=500</code></div>
+    <div class="issue-box">⚠️ <code>max_power_w</code> is NOT in <code>_RESPONSE_SCHEMA</code>. Also "rack 2" → router-2 mapping is indirect.</div>
+    <div class="fix-box">💡 Add <code>max_power_w</code> to <code>_RESPONSE_SCHEMA</code>.</div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<!-- CATEGORY 7 -->
+<!-- ═══════════════════════════════════════════════════════ -->
+<h2>Category 7 — blast_radius_query</h2>
+
+<!-- T37 -->
+<div class="test-card">
+  <div class="test-header">
+    <span class="test-num">TEST 37</span>
+    <span class="test-prompt">"what happens if router-1 fails?"</span>
+    <span class="badge badge-pass">PASS</span>
+    <span class="parser-tag parser-llm">LLM</span>
+  </div>
+  <div class="test-body">
+    <div class="row"><span class="lbl">Expected</span><code>action=blast_radius_query, failed_device_id=droplet-1-tor1/router-1</code></div>
+  </div>
+</div>
+
+<!-- T38 -->
+<div class="test-card">
+  <div class="test-header">
+    <span class="test-num">TEST 38</span>
+    <span class="test-prompt">"blast radius of spine-router"</span>
+    <span class="badge badge-pass">PASS</span>
+    <span class="parser-tag parser-llm">LLM</span>
+  </div>
+  <div class="test-body">
+    <div class="row"><span class="lbl">Expected</span><code>action=blast_radius_query, failed_device_id=droplet-3-mgmt/spine-router</code></div>
+  </div>
+</div>
+
+<!-- T39 -->
+<div class="test-card">
+  <div class="test-header">
+    <span class="test-num">TEST 39</span>
+    <span class="test-prompt">"what is the impact of losing array-ctrl-a?"</span>
+    <span class="badge badge-pass">PASS</span>
+    <span class="parser-tag parser-llm">LLM</span>
+  </div>
+  <div class="test-body">
+    <div class="row"><span class="lbl">Expected</span><code>action=blast_radius_query, failed_device_id=droplet-4-storage/array-ctrl-a</code></div>
+  </div>
+</div>
+
+<!-- T40 -->
+<div class="test-card">
+  <div class="test-header">
+    <span class="test-num">TEST 40</span>
+    <span class="test-prompt">"which servers are affected if router-2 goes down?"</span>
+    <span class="badge badge-pass">PASS</span>
+    <span class="parser-tag parser-llm">LLM</span>
+  </div>
+  <div class="test-body">
+    <div class="row"><span class="lbl">Expected</span><code>action=blast_radius_query, failed_device_id=droplet-2-tor2/router-2</code></div>
+  </div>
+</div>
+
+<!-- T41 -->
+<div class="test-card">
+  <div class="test-header">
+    <span class="test-num">TEST 41</span>
+    <span class="test-prompt">"failure impact of the entire storage rack"</span>
+    <span class="badge badge-partial">PARTIAL</span>
+    <span class="parser-tag parser-llm">LLM</span>
+  </div>
+  <div class="test-body">
+    <div class="row"><span class="lbl">Expected</span><code>blast_radius_query, failed_device_id=droplet-4-storage/storage-router</code></div>
+    <div class="issue-box">⚠️ "entire storage rack" doesn't map to a single node. Gemini may pick storage-router or array-ctrl-a arbitrarily.</div>
+    <div class="fix-box">💡 System prompt: <em>"Only single-device blast radius queries are supported."</em></div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<!-- CATEGORY 8 -->
+<!-- ═══════════════════════════════════════════════════════ -->
+<h2>Category 8 — migrate_rack</h2>
+
+<!-- T42 -->
+<div class="test-card">
+  <div class="test-header">
+    <span class="test-num">TEST 42</span>
+    <span class="test-prompt">"migrate server-1 to rack 2 under router-2"</span>
+    <span class="badge badge-pass">PASS</span>
+    <span class="parser-tag parser-llm">LLM</span>
+  </div>
+  <div class="test-body">
+    <div class="row"><span class="lbl">Expected</span><code>action=migrate_rack, node_id=droplet-1-tor1/server-1, target_rack_id=droplet-2-tor2, target_router_id=droplet-2-tor2/router-2</code></div>
+  </div>
+</div>
+
+<!-- T43 -->
+<div class="test-card">
+  <div class="test-header">
+    <span class="test-num">TEST 43</span>
+    <span class="test-prompt">"move server-4 to the storage rack"</span>
+    <span class="badge badge-partial">PARTIAL</span>
+    <span class="parser-tag parser-llm">LLM</span>
+  </div>
+  <div class="test-body">
+    <div class="row"><span class="lbl">Expected</span><code>action=migrate_rack, node_id=..., target_rack_id=droplet-4-storage</code></div>
+    <div class="issue-box">⚠️ Gemini may return move_server instead — the distinction between cross-rack and same-rack moves is subtle.</div>
+    <div class="fix-box">💡 System prompt: <em>migrate_rack = different physical droplet; move_server = same-rack ToR re-parenting.</em></div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<!-- CATEGORY 9 -->
+<!-- ═══════════════════════════════════════════════════════ -->
+<h2>Category 9 — Typos and Abbreviations</h2>
+
+<!-- T44 -->
+<div class="test-card">
+  <div class="test-header">
+    <span class="test-num">TEST 44</span>
+    <span class="test-prompt">"strss srvr-3 cpu 90%"</span>
+    <span class="badge badge-fail">FAIL</span>
+    <span class="parser-tag parser-fallback">Fallback</span>
+  </div>
+  <div class="test-body">
+    <div class="row"><span class="lbl">Expected</span><code>inject_compute, node_id=droplet-2-tor2/server-3, cpu_pct=90</code></div>
+    <div class="issue-box">⚠️ Regex fails (wrong spelling). "srvr-3" doesn't match any inventory ID.</div>
+    <div class="fix-box">💡 Add difflib fuzzy match in <code>_resolve_id</code> with cutoff=0.8.</div>
+  </div>
+</div>
+
+<!-- T45 -->
+<div class="test-card">
+  <div class="test-header">
+    <span class="test-num">TEST 45</span>
+    <span class="test-prompt">"inject compute stress on svr3"</span>
+    <span class="badge badge-fail">FAIL</span>
+    <span class="parser-tag parser-fallback">Fallback</span>
+  </div>
+  <div class="test-body">
+    <div class="row"><span class="lbl">Expected</span><code>inject_compute, node_id=droplet-2-tor2/server-3</code></div>
+    <div class="issue-box">⚠️ "svr3" is not in inventory — fails Gemini ID validation.</div>
+    <div class="fix-box">💡 Add fuzzy matching or expose common abbreviation aliases to Gemini in the inventory list.</div>
+  </div>
+</div>
+
+<!-- T46 -->
+<div class="test-card">
+  <div class="test-header">
+    <span class="test-num">TEST 46</span>
+    <span class="test-prompt">"set cpu to ninety percent on server-1"</span>
+    <span class="badge badge-partial">PARTIAL</span>
+    <span class="parser-tag parser-llm">LLM</span>
+  </div>
+  <div class="test-body">
+    <div class="row"><span class="lbl">Expected</span><code>inject_compute, node_id=droplet-1-tor1/server-1, cpu_pct=90</code></div>
+    <div class="row"><span class="lbl">Result</span>✅ PASS if Gemini available; ❌ FAIL if rule-based only (regex expects digits).</div>
+    <div class="fix-box">💡 No fix needed if Gemini is available. Rule-based fallback could add word-to-number conversion.</div>
+  </div>
+</div>
+
+<!-- T47 -->
+<div class="test-card">
+  <div class="test-header">
+    <span class="test-num">TEST 47</span>
+    <span class="test-prompt">"inject cpu stress on droplet-1-tor1/server-1"</span>
+    <span class="badge badge-partial">PARTIAL</span>
+    <span class="parser-tag parser-llm">LLM</span>
+  </div>
+  <div class="test-body">
+    <div class="row"><span class="lbl">Expected</span><code>inject_compute, node_id=droplet-1-tor1/server-1</code> (with cpu_pct)</div>
+    <div class="issue-box">⚠️ Full composite path provided but no CPU value — Gemini may omit <code>cpu_pct</code>.</div>
+    <div class="fix-box">💡 System prompt: <em>If no numeric value given for inject_compute, default to cpu_pct=80.</em></div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<!-- CATEGORY 10 -->
+<!-- ═══════════════════════════════════════════════════════ -->
+<h2>Category 10 — Ambiguous / Multi-intent / Edge Cases</h2>
+
+<!-- T48 -->
+<div class="test-card">
+  <div class="test-header">
+    <span class="test-num">TEST 48</span>
+    <span class="test-prompt">"reboot server-3"</span>
+    <span class="badge badge-fail">FAIL (semantic)</span>
+    <span class="parser-tag parser-llm">LLM</span>
+  </div>
+  <div class="test-body">
+    <div class="row"><span class="lbl">Expected</span>Not supported — should not map to remove_node</div>
+    <div class="issue-box">⚠️ Gemini may map "reboot" → remove_node, which is a permanent topology deletion — not a reboot.</div>
+    <div class="fix-box">💡 System prompt: <em>"Do NOT map 'reboot', 'restart', or 'cycle power' to remove_node."</em></div>
+  </div>
+</div>
+
+<!-- T49 -->
+<div class="test-card">
+  <div class="test-header">
+    <span class="test-num">TEST 49</span>
+    <span class="test-prompt">"what's the current CPU of server-1?"</span>
+    <span class="badge badge-fail">FAIL</span>
+    <span class="parser-tag parser-fallback">Fallback</span>
+  </div>
+  <div class="test-body">
+    <div class="row"><span class="lbl">Expected</span>Not a simulation action — graceful rejection</div>
+    <div class="issue-box">⚠️ Status/monitoring queries have no simulation mapping. Gemini may try inject_compute with low CPU.</div>
+    <div class="fix-box">💡 Detect query intent and return a 422 with: <em>"Monitoring queries are handled by the /telemetry API, not the simulation endpoint."</em></div>
+  </div>
+</div>
+
+<!-- T50 -->
+<div class="test-card">
+  <div class="test-header">
+    <span class="test-num">TEST 50</span>
+    <span class="test-prompt">"simulate a DDoS attack on server-2"</span>
+    <span class="badge badge-partial">PARTIAL</span>
+    <span class="parser-tag parser-llm">LLM</span>
+  </div>
+  <div class="test-body">
+    <div class="row"><span class="lbl">Expected</span><code>inject_network</code> with high packet loss / latency</div>
+    <div class="issue-box">⚠️ "DDoS" has no canonical mapping — Gemini may interpret as network saturation or CPU overload inconsistently.</div>
+    <div class="fix-box">💡 System prompt: <em>DDoS → inject_network, packet_loss_pct=30, latency_ms=500.</em></div>
+  </div>
+</div>
+
+<!-- T51 -->
+<div class="test-card">
+  <div class="test-header">
+    <span class="test-num">TEST 51</span>
+    <span class="test-prompt">"what if the whole datacenter goes down?"</span>
+    <span class="badge badge-fail">FAIL</span>
+    <span class="parser-tag parser-fallback">Fallback</span>
+  </div>
+  <div class="test-body">
+    <div class="row"><span class="lbl">Expected</span>Graceful rejection — too broad to simulate</div>
+    <div class="issue-box">⚠️ Falls to blast_radius_query with __unresolved__ which runs a no-op simulation with no useful output.</div>
+    <div class="fix-box">💡 Return a 422 with: <em>"Prompt could not be mapped to a simulation action. Please target a specific node."</em></div>
+  </div>
+</div>
+
+<!-- T52 -->
+<div class="test-card">
+  <div class="test-header">
+    <span class="test-num">TEST 52</span>
+    <span class="test-prompt">"inject compute on server-1 and network fault on router-1"</span>
+    <span class="badge badge-fail">FAIL</span>
+    <span class="parser-tag parser-llm">LLM</span>
+  </div>
+  <div class="test-body">
+    <div class="row"><span class="lbl">Expected</span>Two actions — not supported in a single request</div>
+    <div class="issue-box">⚠️ Gemini picks one action and silently drops the other with no warning to the user.</div>
+    <div class="fix-box">💡 System prompt: <em>"Only one action per request. If two are detected, process the first and note that the second was ignored."</em></div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<!-- SUMMARY TABLE -->
+<!-- ═══════════════════════════════════════════════════════ -->
+<h2>Summary Table</h2>
+<table>
+  <thead>
+    <tr>
+      <th>#</th>
+      <th>Prompt (abbreviated)</th>
+      <th>Action</th>
+      <th>Result</th>
+      <th>Parser</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>Stress server-3 CPU to 90%</td><td>inject_compute</td><td><span class="badge badge-pass">PASS</span></td><td>Gemini</td></tr>
+    <tr><td>2</td><td>inject cpu 85% on server-1</td><td>inject_compute</td><td><span class="badge badge-pass">PASS</span></td><td>Rule</td></tr>
+    <tr><td>3</td><td>high memory pressure on server-4, set to 95%</td><td>inject_compute</td><td><span class="badge badge-pass">PASS</span></td><td>Gemini</td></tr>
+    <tr><td>4</td><td>max out cpu and memory on server-2</td><td>inject_compute</td><td><span class="badge badge-partial">PARTIAL</span></td><td>Gemini</td></tr>
+    <tr><td>5</td><td>put server-3 under heavy load</td><td>inject_compute</td><td><span class="badge badge-partial">PARTIAL</span></td><td>Gemini</td></tr>
+    <tr><td>6</td><td>power consumption of array-ctrl-a to 600W</td><td>inject_compute</td><td><span class="badge badge-pass">PASS</span></td><td>Gemini</td></tr>
+    <tr><td>7</td><td>overheat server-1 to 85 degrees</td><td>inject_compute</td><td><span class="badge badge-pass">PASS</span></td><td>Gemini</td></tr>
+    <tr><td>8</td><td>inject cpu 110% on server-1</td><td>inject_compute</td><td><span class="badge badge-pass">PASS</span></td><td>Rule</td></tr>
+    <tr><td>9</td><td>stress spine router CPU to 70%</td><td>inject_compute</td><td><span class="badge badge-fail">FAIL</span></td><td>Gemini</td></tr>
+    <tr><td>10</td><td>SERVER-3 CPU 90</td><td>inject_compute</td><td><span class="badge badge-fail">FAIL</span></td><td>Fallback</td></tr>
+    <tr><td>11</td><td>50ms latency between server-1 and server-3</td><td>inject_network</td><td><span class="badge badge-pass">PASS</span></td><td>Gemini</td></tr>
+    <tr><td>12</td><td>latency 30ms server-1 to router-1</td><td>inject_network</td><td><span class="badge badge-pass">PASS</span></td><td>Rule</td></tr>
+    <tr><td>13</td><td>15% packet loss router-1 to spine-router</td><td>inject_network</td><td><span class="badge badge-pass">PASS</span></td><td>Gemini</td></tr>
+    <tr><td>14</td><td>degrade link between server-2 and router-1</td><td>inject_network</td><td><span class="badge badge-fail">FAIL</span></td><td>Gemini</td></tr>
+    <tr><td>15</td><td>make network between server-3 and router-2 flaky</td><td>inject_network</td><td><span class="badge badge-fail">FAIL</span></td><td>Gemini</td></tr>
+    <tr><td>16</td><td>set bandwidth to 100 Mbps on link</td><td>inject_network</td><td><span class="badge badge-partial">PARTIAL</span></td><td>Gemini</td></tr>
+    <tr><td>17</td><td>inject 200ms latency on server-3 (no target)</td><td>inject_network</td><td><span class="badge badge-fail">FAIL</span></td><td>Gemini</td></tr>
+    <tr><td>18</td><td>disk IOPS to 5000 on array-ctrl-a</td><td>inject_storage</td><td><span class="badge badge-pass">PASS</span></td><td>Gemini</td></tr>
+    <tr><td>19</td><td>5000 iops on array-ctrl-b</td><td>inject_storage</td><td><span class="badge badge-pass">PASS</span></td><td>Rule</td></tr>
+    <tr><td>20</td><td>storage saturation on obj-node-1</td><td>inject_storage</td><td><span class="badge badge-partial">PARTIAL</span></td><td>Gemini</td></tr>
+    <tr><td>21</td><td>fill up storage on array-ctrl-a to 90%</td><td>inject_storage</td><td><span class="badge badge-fail">FAIL</span></td><td>Gemini</td></tr>
+    <tr><td>22</td><td>inject storage stress on server-1</td><td>inject_storage</td><td><span class="badge badge-fail">FAIL</span></td><td>Gemini</td></tr>
+    <tr><td>23</td><td>remove server-3 from topology</td><td>remove_node</td><td><span class="badge badge-pass">PASS</span></td><td>Gemini</td></tr>
+    <tr><td>24</td><td>remove server-2</td><td>remove_node</td><td><span class="badge badge-pass">PASS</span></td><td>Rule</td></tr>
+    <tr><td>25</td><td>simulate node failure on router-2</td><td>remove_node</td><td><span class="badge badge-pass">PASS</span></td><td>Gemini</td></tr>
+    <tr><td>26</td><td>take down array-ctrl-b</td><td>remove_node</td><td><span class="badge badge-pass">PASS</span></td><td>Gemini</td></tr>
+    <tr><td>27</td><td>delete all servers</td><td>remove_node</td><td><span class="badge badge-fail">FAIL</span></td><td>Gemini</td></tr>
+    <tr><td>28</td><td>remove xyz-server-99 (unknown node)</td><td>remove_node</td><td><span class="badge badge-pass">PASS</span></td><td>Fallback</td></tr>
+    <tr><td>29</td><td>move server-1 to router-2</td><td>move_server</td><td><span class="badge badge-pass">PASS</span></td><td>Rule</td></tr>
+    <tr><td>30</td><td>migrate server-3 to rack 1</td><td>move_server</td><td><span class="badge badge-partial">PARTIAL</span></td><td>Gemini</td></tr>
+    <tr><td>31</td><td>move server-2 from tor1 to tor2</td><td>move_server</td><td><span class="badge badge-pass">PASS</span></td><td>Gemini</td></tr>
+    <tr><td>32</td><td>swap server-1 and server-3</td><td>move_server</td><td><span class="badge badge-fail">FAIL</span></td><td>Gemini</td></tr>
+    <tr><td>33</td><td>add a new server to router-1</td><td>add_compute</td><td><span class="badge badge-pass">PASS</span></td><td>Gemini</td></tr>
+    <tr><td>34</td><td>add compute node server-5 to router-2</td><td>add_compute</td><td><span class="badge badge-partial">PARTIAL</span></td><td>Rule</td></tr>
+    <tr><td>35</td><td>scale up tor1 rack by 2 servers</td><td>add_compute</td><td><span class="badge badge-partial">PARTIAL</span></td><td>Gemini</td></tr>
+    <tr><td>36</td><td>provision a 500W GPU server in rack 2</td><td>add_compute</td><td><span class="badge badge-fail">FAIL</span></td><td>Gemini</td></tr>
+    <tr><td>37</td><td>what happens if router-1 fails?</td><td>blast_radius</td><td><span class="badge badge-pass">PASS</span></td><td>Gemini</td></tr>
+    <tr><td>38</td><td>blast radius of spine-router</td><td>blast_radius</td><td><span class="badge badge-pass">PASS</span></td><td>Gemini</td></tr>
+    <tr><td>39</td><td>impact of losing array-ctrl-a</td><td>blast_radius</td><td><span class="badge badge-pass">PASS</span></td><td>Gemini</td></tr>
+    <tr><td>40</td><td>which servers affected if router-2 goes down?</td><td>blast_radius</td><td><span class="badge badge-pass">PASS</span></td><td>Gemini</td></tr>
+    <tr><td>41</td><td>failure impact of entire storage rack</td><td>blast_radius</td><td><span class="badge badge-partial">PARTIAL</span></td><td>Gemini</td></tr>
+    <tr><td>42</td><td>migrate server-1 to rack 2 under router-2</td><td>migrate_rack</td><td><span class="badge badge-pass">PASS</span></td><td>Gemini</td></tr>
+    <tr><td>43</td><td>move server-4 to the storage rack</td><td>migrate_rack</td><td><span class="badge badge-partial">PARTIAL</span></td><td>Gemini</td></tr>
+    <tr><td>44</td><td>strss srvr-3 cpu 90% (typo)</td><td>inject_compute</td><td><span class="badge badge-fail">FAIL</span></td><td>Fallback</td></tr>
+    <tr><td>45</td><td>inject compute stress on svr3 (abbrev)</td><td>inject_compute</td><td><span class="badge badge-fail">FAIL</span></td><td>Fallback</td></tr>
+    <tr><td>46</td><td>set cpu to ninety percent on server-1</td><td>inject_compute</td><td><span class="badge badge-partial">PARTIAL</span></td><td>Gemini/Rule</td></tr>
+    <tr><td>47</td><td>inject cpu stress on full path ID</td><td>inject_compute</td><td><span class="badge badge-partial">PARTIAL</span></td><td>Gemini</td></tr>
+    <tr><td>48</td><td>reboot server-3</td><td>—</td><td><span class="badge badge-fail">FAIL</span></td><td>Gemini</td></tr>
+    <tr><td>49</td><td>what's the current CPU of server-1?</td><td>—</td><td><span class="badge badge-fail">FAIL</span></td><td>Fallback</td></tr>
+    <tr><td>50</td><td>simulate a DDoS attack on server-2</td><td>inject_network</td><td><span class="badge badge-partial">PARTIAL</span></td><td>Gemini</td></tr>
+    <tr><td>51</td><td>what if the whole datacenter goes down?</td><td>—</td><td><span class="badge badge-fail">FAIL</span></td><td>Fallback</td></tr>
+    <tr><td>52</td><td>inject compute AND network fault (multi-action)</td><td>—</td><td><span class="badge badge-fail">FAIL</span></td><td>Gemini</td></tr>
+  </tbody>
+</table>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<!-- CONSOLIDATED FIXES -->
+<!-- ═══════════════════════════════════════════════════════ -->
+<h2>Consolidated Fixes</h2>
+
+<!-- FIX 1 -->
+<div class="fix-section">
+  <div class="fix-section-header">Fix 1 — Missing fields in _RESPONSE_SCHEMA &nbsp;·&nbsp; nlp_parser.py:14</div>
+  <div class="fix-section-body">
+    <p>The following fields exist in the Pydantic models but are absent from the JSON schema sent to Gemini, making them <strong>completely unreachable</strong> via the NLP pipeline regardless of what the user types.</p>
+    <pre><span class="cmt"># Add to _RESPONSE_SCHEMA["properties"]:</span>
+<span class="str">"bandwidth_mbps"</span>:   &#123;<span class="str">"type"</span>: <span class="str">"number"</span>,  <span class="str">"minimum"</span>: <span class="num-c">0</span>&#125;,
+<span class="str">"capacity_used_gb"</span>: &#123;<span class="str">"type"</span>: <span class="str">"number"</span>,  <span class="str">"minimum"</span>: <span class="num-c">0</span>&#125;,
+<span class="str">"quantity"</span>:         &#123;<span class="str">"type"</span>: <span class="str">"integer"</span>, <span class="str">"minimum"</span>: <span class="num-c">1</span>&#125;,
+<span class="str">"max_power_w"</span>:      &#123;<span class="str">"type"</span>: <span class="str">"number"</span>,  <span class="str">"minimum"</span>: <span class="num-c">0</span>&#125;,</pre>
+    <p>Affects tests: 16, 21, 35, 36</p>
+  </div>
+</div>
+
+<!-- FIX 2 -->
+<div class="fix-section">
+  <div class="fix-section-header">Fix 2 — Vague load/fault terminology &nbsp;·&nbsp; nlp_parser.py:201 (system_prompt)</div>
+  <div class="fix-section-body">
+    <p>Append the following semantic defaults block to the Gemini system prompt:</p>
+    <pre>Semantic defaults:
+  <span class="str">'heavy load'</span> / <span class="str">'high stress'</span>  → cpu_pct=<span class="num-c">80</span>, memory_pct=<span class="num-c">80</span>
+  <span class="str">'max out'</span> / <span class="str">'full load'</span>       → cpu_pct=<span class="num-c">100</span>, memory_pct=<span class="num-c">100</span>
+  <span class="str">'light load'</span>                  → cpu_pct=<span class="num-c">20</span>
+  <span class="str">'saturate storage'</span>            → disk_iops=<span class="num-c">50000</span>
+  <span class="str">'degrade link'</span>                → packet_loss_pct=<span class="num-c">5</span>, latency_ms=<span class="num-c">20</span>
+  <span class="str">'flaky'</span> / <span class="str">'unstable link'</span>    → packet_loss_pct=<span class="num-c">10</span>
+  <span class="str">'DDoS'</span>                        → inject_network, packet_loss_pct=<span class="num-c">30</span>, latency_ms=<span class="num-c">500</span>
+  <span class="str">'CPU bomb'</span>                    → inject_compute, cpu_pct=<span class="num-c">100</span>
+Do NOT map <span class="str">'reboot'</span>, <span class="str">'restart'</span>, <span class="str">'cycle power'</span> to remove_node.
+Only one action per request; if two are detected, process the first only.
+If intent is a status query, return blast_radius_query with failed_device_id=__unresolved__.</pre>
+    <p>Affects tests: 4, 5, 14, 15, 20, 48, 50, 52</p>
+  </div>
+</div>
+
+<!-- FIX 3 -->
+<div class="fix-section">
+  <div class="fix-section-header">Fix 3 — migrate_rack vs move_server disambiguation &nbsp;·&nbsp; nlp_parser.py:201</div>
+  <div class="fix-section-body">
+    <p>Add to the system prompt action descriptions:</p>
+    <pre>move_server  = move a compute node to a different ToR router <span class="kw">within</span> the same physical rack.
+migrate_rack = move a compute node to a completely different physical rack (different droplet).</pre>
+    <p>Affects tests: 30, 43</p>
+  </div>
+</div>
+
+<!-- FIX 4 -->
+<div class="fix-section">
+  <div class="fix-section-header">Fix 4 — Bulk/destructive intent guard &nbsp;·&nbsp; nlp_parser.py:_gemini_parse</div>
+  <div class="fix-section-body">
+    <p>After parsing the Gemini payload, add a bulk-remove guard:</p>
+    <pre><span class="kw">if</span> payload.get(<span class="str">"action"</span>) == <span class="str">"remove_node"</span>:
+    <span class="kw">if</span> any(w <span class="kw">in</span> text.lower() <span class="kw">for</span> w <span class="kw">in</span> [<span class="str">"all"</span>, <span class="str">"every"</span>, <span class="str">"entire"</span>]):
+        logger.warning(<span class="str">"Bulk remove intent detected — rejecting"</span>)
+        <span class="kw">return</span> <span class="kw">None</span></pre>
+    <p>Affects test: 27</p>
+  </div>
+</div>
+
+<!-- FIX 5 -->
+<div class="fix-section">
+  <div class="fix-section-header">Fix 5 — Better fallback error messaging &nbsp;·&nbsp; nlp_parser.py:_fallback + API route</div>
+  <div class="fix-section-body">
+    <p>When <code>parser_used=fallback</code> with <code>failed_device_id=__unresolved__</code>, the API should return a 422 rather than silently running a no-op simulation:</p>
+    <pre><span class="cmt"># In the simulation API route, before executing:</span>
+<span class="kw">if</span> req.parser_used == <span class="str">"fallback"</span> <span class="kw">and</span> getattr(req, <span class="str">"failed_device_id"</span>, <span class="str">""</span>) == <span class="str">"__unresolved__"</span>:
+    <span class="kw">raise</span> HTTPException(
+        status_code=<span class="num-c">422</span>,
+        detail=<span class="str">"Prompt could not be mapped to a simulation action. "</span>
+               <span class="str">"Please target a specific node and use a supported verb."</span>
+    )</pre>
+    <p>Affects tests: 49, 51</p>
+  </div>
+</div>
+
+<!-- FIX 6 -->
+<div class="fix-section">
+  <div class="fix-section-header">Fix 6 — Fuzzy node ID matching for typos &nbsp;·&nbsp; nlp_parser.py:_resolve_id</div>
+  <div class="fix-section-body">
+    <p>Replace the current <code>_resolve_id</code> function with a version that falls back to difflib for near-matches:</p>
+    <pre><span class="kw">import</span> difflib
+
+<span class="kw">def</span> _resolve_id(token: str, inventory: set[str]) -> str | <span class="kw">None</span>:
+    val = token.strip()
+    <span class="kw">if not</span> val:
+        <span class="kw">return None</span>
+    <span class="kw">if</span> val <span class="kw">in</span> inventory:
+        <span class="kw">return</span> val
+    <span class="kw">if</span> <span class="str">"/"</span> <span class="kw">in</span> val:
+        val = val.split(<span class="str">"/"</span>, <span class="num-c">1</span>)[<span class="num-c">1</span>]
+    exact = next((nid <span class="kw">for</span> nid <span class="kw">in</span> inventory
+                  <span class="kw">if</span> nid == val <span class="kw">or</span> nid.endswith(<span class="str">f"/{val}"</span>)), <span class="kw">None</span>)
+    <span class="kw">if</span> exact:
+        <span class="kw">return</span> exact
+    <span class="cmt"># Fuzzy fallback — only accept very close matches (cutoff 0.8)</span>
+    short_names = [nid.split(<span class="str">"/"</span>)[<span class="num-c">-1</span>] <span class="kw">for</span> nid <span class="kw">in</span> inventory]
+    close = difflib.get_close_matches(val, short_names, n=<span class="num-c">1</span>, cutoff=<span class="num-c">0.8</span>)
+    <span class="kw">if</span> close:
+        <span class="kw">return</span> next((nid <span class="kw">for</span> nid <span class="kw">in</span> inventory
+                     <span class="kw">if</span> nid.endswith(<span class="str">f"/{close[0]}"</span>)), <span class="kw">None</span>)
+    <span class="kw">return None</span></pre>
+    <p>Affects tests: 44, 45</p>
+  </div>
+</div>
+
+</body>
+</html>

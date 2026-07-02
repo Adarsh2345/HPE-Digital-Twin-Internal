@@ -54,12 +54,13 @@ resource "digitalocean_droplet" "droplets" {
     droplet.name => droplet
   }
 
-  name     = each.value.name
-  size     = each.value.size
-  image    = each.value.image
-  region   = each.value.region
-  vpc_uuid = digitalocean_vpc.main.id
-  tags     = each.value.tags
+  name      = each.value.name
+  size      = each.value.size
+  image     = each.value.image
+  region    = each.value.region
+  vpc_uuid  = digitalocean_vpc.main.id
+  tags      = each.value.tags
+  ssh_keys  = var.ssh_key_fingerprints
 
   user_data = local.cloud_init_map[each.value.name]
 }

@@ -9,7 +9,7 @@ class RequestBase(BaseModel):
     model_config = ConfigDict(extra="forbid")
     projection_steps: int = Field(default=3, ge=1, le=10)
     request_text: str | None = None
-    parser_used: Literal["form", "gemini", "rule", "fallback"] = "form"
+    parser_used: Literal["form", "llm", "fallback"] = "form"
     requested_by: str | None = None
 
 
@@ -84,10 +84,16 @@ REQUEST_ADAPTER = TypeAdapter(SimulationRequest)
 
 
 def normalize_request(payload: dict[str, Any]) -> SimulationRequest:
-    if "params" not in payload:
-        return REQUEST_ADAPTER.validate_python(payload)
-    params = dict(payload.get("params") or {})
     action = payload.get("action")
+
+    if "params" not in payload:
+        # Flat payload from NLP parser — apply rack inference then validate
+        flat = dict(payload)
+        if action == "add_compute":
+            flat = _ensure_rack(flat)
+        return REQUEST_ADAPTER.validate_python(flat)
+
+    params = dict(payload.get("params") or {})
     aliases = {
         "target_router": "target_router_id", "router_id": "target_router_id",
         "target_droplet": "target_rack_id", "source_node": "source_node_id",
@@ -97,7 +103,7 @@ def normalize_request(payload: dict[str, Any]) -> SimulationRequest:
     }
     normalized = {aliases.get(key, key): value for key, value in params.items()}
     if action == "add_compute":
-        normalized.setdefault("target_rack_id", _rack_from_router(normalized.get("target_router_id", "")))
+        normalized = _ensure_rack(normalized)
     return REQUEST_ADAPTER.validate_python({
         "action": action,
         "projection_steps": payload.get("projection_steps", 3),
@@ -108,5 +114,25 @@ def normalize_request(payload: dict[str, Any]) -> SimulationRequest:
     })
 
 
+def _ensure_rack(d: dict[str, Any]) -> dict[str, Any]:
+    """Fill target_rack_id from target_router_id if missing or empty."""
+    if not d.get("target_rack_id"):
+        d = {**d, "target_rack_id": _rack_from_router(d.get("target_router_id", ""))}
+    return d
+
+
+_ROUTER_TO_RACK: dict[str, str] = {
+    "router-1": "droplet-1-tor1",
+    "droplet-1-tor1/router-1": "droplet-1-tor1",
+    "router-2": "droplet-2-tor2",
+    "droplet-2-tor2/router-2": "droplet-2-tor2",
+    "storage-router": "droplet-4-storage",
+    "droplet-4-storage/storage-router": "droplet-4-storage",
+}
+
 def _rack_from_router(router_id: str) -> str:
-    return router_id.split("/", 1)[0] if "/" in router_id else ""
+    if router_id in _ROUTER_TO_RACK:
+        return _ROUTER_TO_RACK[router_id]
+    if "/" in router_id:
+        return router_id.split("/", 1)[0]
+    return ""

@@ -43,8 +43,8 @@ INFLUXDB_BUCKET = os.getenv("INFLUXDB_BUCKET", "telemetry_bucket")
 # Natural-language parser — Gemini
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
-GEMINI_TIMEOUT_SECONDS = max(10.0, float(os.getenv("GEMINI_TIMEOUT_SECONDS", "15")))
-GEMINI_RETRY_ATTEMPTS = min(3, max(1, int(os.getenv("GEMINI_RETRY_ATTEMPTS", "3"))))
+GEMINI_TIMEOUT_SECONDS = max(5.0, float(os.getenv("GEMINI_TIMEOUT_SECONDS", "10")))
+GEMINI_RETRY_ATTEMPTS = min(2, max(1, int(os.getenv("GEMINI_RETRY_ATTEMPTS", "1"))))
 
 # Simulation audit DB
 SIMULATION_DB_PATH = os.getenv("SIMULATION_DB_PATH", "/tmp/hpe_digital_twin_simulations.sqlite3")

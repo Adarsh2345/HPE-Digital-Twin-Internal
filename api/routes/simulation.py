@@ -100,7 +100,17 @@ def run_simulation(
 
     # ─── REMAP INCOMING SCHEMA KEYS FOR MUTATOR COMPATIBILITY ───
     simulation_params = dict(req.params)
-    
+
+    # Derive router from rack when only target_rack_id is supplied (e.g. from ConfirmationPanel)
+    _RACK_TO_ROUTER = {
+        "droplet-1-tor1": "droplet-1-tor1/router-1",
+        "droplet-2-tor2": "droplet-2-tor2/router-2",
+    }
+    if "target_rack_id" in simulation_params and "target_router_id" not in simulation_params:
+        rack = simulation_params["target_rack_id"]
+        if rack in _RACK_TO_ROUTER:
+            simulation_params["target_router_id"] = _RACK_TO_ROUTER[rack]
+
     if "target_router_id" in simulation_params:
         simulation_params["target_router"] = simulation_params["target_router_id"]
         simulation_params["router_id"] = simulation_params["target_router_id"]

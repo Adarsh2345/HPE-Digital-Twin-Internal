@@ -1,0 +1,301 @@
+00:08:31 [INFO] run — \U0001f433 Orchestrating Docker infrastructure layers (Redis + Neo4j)...
+00:08:31 [INFO] run — \u23f3 Launching containers and waiting for engines to fully initialize...
+00:08:32 [INFO] run — \u2705 Redis and Neo4j stack verified operational, healthy, and ready!
+00:08:32 [INFO] run — Starting API server on http://0.0.0.0:5000
+INFO:     Will watch for changes in these directories: ['C:\\Adarsh\\HPE-Digital-Twin-Internal']
+INFO:     Uvicorn running on http://0.0.0.0:5000 (Press CTRL+C to quit)
+INFO:     Started reloader process [7752] using WatchFiles
+00:08:36 [INFO] integrations.influxdb.history_fetcher — HistoryFetcher: InfluxDB OK
+00:08:36 [INFO] integrations.influxdb.history_fetcher — HistoryFetcher: InfluxDB OK
+00:08:36 [INFO] integrations.influxdb.history_fetcher — HistoryFetcher: InfluxDB OK
+INFO:     Started server process [14004]
+INFO:     Waiting for application startup.
+00:08:36 [INFO] api.main — Starting HPE Digital Twin Platform
+00:08:36 [INFO] core.orchestrator — ============================================================
+00:08:36 [INFO] core.orchestrator —     HPE DIGITAL TWIN — BOOTSTRAPPING ENGINE METADATA        
+00:08:36 [INFO] core.orchestrator — ============================================================
+00:08:37 [INFO] core.parser.yaml_parser — Loaded infrastructure YAML from C:\Adarsh\HPE-Digital-Twin-Internal\infrastructure\infrastructure.yaml
+00:08:37 [INFO] core.parser.topology_loader — Topology loaded: 26 nodes, 15 edges
+00:08:37 [INFO] core.graph.topology_builder — Initial Topology Graph built: 26 nodes, 13 edges
+00:08:37 [INFO] core.orchestrator — Topology compiled cleanly: 26 nodes loaded.
+00:08:37 [INFO] core.orchestrator — Pinging Redis cache cluster node on localhost:6379...
+00:08:37 [INFO] core.orchestrator — \u2705 Redis cluster cache layer link active.
+00:08:37 [INFO] core.orchestrator — Connecting to Neo4j transaction graph instance on bolt://localhost:7687...
+00:08:41 [INFO] integrations.neo4j.neo4j_client — Static Base Topology layout mapped permanently into Neo4j.
+00:08:41 [INFO] core.orchestrator — \u2705 Neo4j immutable baseline topology synchronized successfully.
+00:08:41 [INFO] integrations.influxdb.influx_client — \u2705 InfluxDB Client connected successfully at http://localhost:8086
+00:08:41 [INFO] core.analytics.model_registry — ModelRegistry: starting analytics bootstrap...
+00:08:43 [INFO] core.analytics.historical_analyzer — HistoricalPatternAnalyzer: 26 node profiles, 13 edge profiles
+00:08:43 [INFO] core.analytics.model_registry —   \u2714 HistoricalPatternAnalyzer complete
+00:08:44 [WARNING] core.analytics.scenario_generator — Insufficient data for clustering — using static fallback scenarios
+00:08:44 [INFO] core.analytics.model_registry —   \u2714 ScenarioGenerator: 4 scenarios, k=0
+00:08:46 [WARNING] core.analytics.model_registry —   BehaviorModel training failed: [Errno 2] No such file or directory: 'C:\\Adarsh\\HPE-Digital-Twin-Internal\\core\\analytics\\..\\..\\models\\droplet-1-tor1/cadvisor_models.pkl' — using linear fallback
+00:08:46 [INFO] core.analytics.model_registry — ModelRegistry: bootstrap complete
+00:08:46 [INFO] core.orchestrator — \u2705 ML analytics pipeline bootstrapped successfully.
+00:08:46 [INFO] api.main — Background telemetry loop launched \u2713
+00:08:46 [INFO] core.orchestrator — \U0001f680 Heartbeat background harvester loop active (12s intervals).
+00:08:46 [INFO] watchfiles.main — 1 change detected
+00:08:46 [INFO] watchfiles.main — 1 change detected
+INFO:     Application startup complete.
+00:08:47 [INFO] watchfiles.main — 1 change detected
+00:08:47 [INFO] watchfiles.main — 1 change detected
+00:08:48 [INFO] watchfiles.main — 1 change detected
+00:08:48 [INFO] watchfiles.main — 1 change detected
+00:08:48 [INFO] watchfiles.main — 1 change detected
+00:08:49 [INFO] watchfiles.main — 1 change detected
+00:08:49 [INFO] watchfiles.main — 1 change detected
+00:08:50 [INFO] watchfiles.main — 1 change detected
+00:08:50 [INFO] watchfiles.main — 1 change detected
+00:08:50 [INFO] watchfiles.main — 1 change detected
+00:08:51 [INFO] watchfiles.main — 1 change detected
+00:08:51 [INFO] watchfiles.main — 1 change detected
+00:08:52 [INFO] watchfiles.main — 1 change detected
+00:08:52 [INFO] watchfiles.main — 1 change detected
+00:08:52 [INFO] watchfiles.main — 1 change detected
+00:08:53 [INFO] watchfiles.main — 1 change detected
+00:08:53 [INFO] watchfiles.main — 1 change detected
+00:08:54 [INFO] watchfiles.main — 1 change detected
+00:08:54 [INFO] watchfiles.main — 1 change detected
+00:08:54 [INFO] watchfiles.main — 1 change detected
+00:08:55 [INFO] watchfiles.main — 1 change detected
+00:08:55 [INFO] watchfiles.main — 1 change detected
+00:08:56 [INFO] watchfiles.main — 1 change detected
+00:08:56 [INFO] watchfiles.main — 1 change detected
+00:08:56 [INFO] watchfiles.main — 1 change detected
+00:08:57 [INFO] watchfiles.main — 1 change detected
+00:08:57 [INFO] watchfiles.main — 1 change detected
+00:08:58 [INFO] watchfiles.main — 1 change detected
+00:08:58 [INFO] watchfiles.main — 1 change detected
+00:08:58 [INFO] watchfiles.main — 1 change detected
+00:08:59 [INFO] watchfiles.main — 1 change detected
+00:08:59 [INFO] watchfiles.main — 1 change detected
+00:09:00 [INFO] watchfiles.main — 1 change detected
+00:09:00 [INFO] watchfiles.main — 1 change detected
+00:09:01 [INFO] watchfiles.main — 1 change detected
+00:09:01 [INFO] watchfiles.main — 1 change detected
+00:09:01 [INFO] watchfiles.main — 1 change detected
+00:09:02 [INFO] watchfiles.main — 1 change detected
+00:09:02 [INFO] watchfiles.main — 1 change detected
+00:09:03 [INFO] watchfiles.main — 1 change detected
+00:09:03 [INFO] watchfiles.main — 1 change detected
+00:09:03 [INFO] watchfiles.main — 1 change detected
+00:09:04 [INFO] watchfiles.main — 1 change detected
+00:09:04 [INFO] watchfiles.main — 1 change detected
+00:09:05 [INFO] watchfiles.main — 1 change detected
+00:09:05 [INFO] watchfiles.main — 1 change detected
+00:09:05 [INFO] watchfiles.main — 1 change detected
+00:09:06 [INFO] watchfiles.main — 1 change detected
+00:09:06 [INFO] watchfiles.main — 1 change detected
+00:09:07 [INFO] watchfiles.main — 1 change detected
+00:09:07 [INFO] watchfiles.main — 1 change detected
+00:09:07 [INFO] watchfiles.main — 1 change detected
+00:09:08 [INFO] watchfiles.main — 1 change detected
+00:09:08 [INFO] watchfiles.main — 1 change detected
+00:09:09 [INFO] watchfiles.main — 1 change detected
+00:09:09 [INFO] watchfiles.main — 1 change detected
+00:09:09 [INFO] watchfiles.main — 1 change detected
+INFO:     127.0.0.1:63142 - "GET /api/v1/telemetry/status HTTP/1.1" 200 OK
+00:09:10 [INFO] watchfiles.main — 1 change detected
+INFO:     127.0.0.1:63144 - "GET /api/v1/topology/nodes HTTP/1.1" 200 OK
+00:09:10 [INFO] watchfiles.main — 1 change detected
+00:09:11 [INFO] watchfiles.main — 1 change detected
+00:09:11 [INFO] watchfiles.main — 1 change detected
+00:09:11 [INFO] watchfiles.main — 1 change detected
+00:09:12 [INFO] watchfiles.main — 1 change detected
+00:09:12 [INFO] watchfiles.main — 1 change detected
+00:09:13 [INFO] watchfiles.main — 1 change detected
+00:09:13 [INFO] watchfiles.main — 1 change detected
+00:09:13 [INFO] watchfiles.main — 1 change detected
+00:09:14 [INFO] watchfiles.main — 1 change detected
+00:09:14 [INFO] watchfiles.main — 1 change detected
+00:09:15 [INFO] watchfiles.main — 1 change detected
+00:09:15 [INFO] watchfiles.main — 1 change detected
+00:09:15 [INFO] watchfiles.main — 1 change detected
+00:09:16 [INFO] watchfiles.main — 1 change detected
+00:09:16 [INFO] watchfiles.main — 1 change detected
+00:09:17 [INFO] watchfiles.main — 1 change detected
+00:09:17 [INFO] watchfiles.main — 1 change detected
+00:09:17 [INFO] watchfiles.main — 1 change detected
+00:09:18 [INFO] watchfiles.main — 1 change detected
+00:09:18 [INFO] watchfiles.main — 1 change detected
+00:09:19 [INFO] watchfiles.main — 1 change detected
+00:09:19 [INFO] watchfiles.main — 1 change detected
+00:09:19 [INFO] watchfiles.main — 1 change detected
+00:09:20 [INFO] google_genai.models — AFC is enabled with max remote calls: 10.
+00:09:20 [INFO] watchfiles.main — 1 change detected
+00:09:20 [INFO] watchfiles.main — 1 change detected
+00:09:21 [INFO] watchfiles.main — 1 change detected
+00:09:21 [INFO] watchfiles.main — 1 change detected
+00:09:21 [INFO] httpx — HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent "HTTP/1.1 200 OK"
+00:09:21 [INFO] simulation.nlp_parser — Gemini parsed and matched canonical path: action=inject_compute, ids={'droplet-2-tor2/server-3'}
+00:09:21 [INFO] core.simulation.clone_manager — RCU clone created: 598d0254
+00:09:21 [INFO] core.simulation.simulator — [Simulator] clone=598d0254 action=inject_compute
+00:09:21 [INFO] core.simulation.mutators — Compute stress injected on 'droplet-2-tor2/server-3': CPU=92.0% MEM=75.0%
+00:09:22 [INFO] watchfiles.main — 1 change detected
+00:09:22 [INFO] watchfiles.main — 1 change detected
+00:09:22 [INFO] core.validation.validator_engine — \u2705 Validation PASSED — all constraint tiers cleared
+00:09:22 [INFO] watchfiles.main — 1 change detected
+00:09:22 [INFO] core.validation.validator_engine — \u2705 Validation PASSED — all constraint tiers cleared
+00:09:23 [INFO] core.validation.validator_engine — \u2705 Validation PASSED — all constraint tiers cleared
+00:09:23 [INFO] watchfiles.main — 1 change detected
+00:09:23 [INFO] core.validation.validator_engine — \u2705 Validation PASSED — all constraint tiers cleared
+00:09:23 [INFO] core.validation.validator_engine — \u2705 Validation PASSED — all constraint tiers cleared
+00:09:23 [INFO] core.recommendations.recommendation_engine — Recommendation report generated — allowed=True, violations=0, recommendations=0
+INFO:     127.0.0.1:63163 - "POST /api/v1/metrics/resolve HTTP/1.1" 200 OK
+00:09:23 [INFO] watchfiles.main — 1 change detected
+00:09:24 [INFO] watchfiles.main — 1 change detected
+00:09:24 [INFO] watchfiles.main — 1 change detected
+00:09:24 [INFO] watchfiles.main — 1 change detected
+00:09:25 [INFO] watchfiles.main — 1 change detected
+00:09:25 [INFO] watchfiles.main — 1 change detected
+00:09:26 [INFO] watchfiles.main — 1 change detected
+00:09:26 [INFO] watchfiles.main — 1 change detected
+00:09:26 [INFO] watchfiles.main — 1 change detected
+00:09:27 [INFO] watchfiles.main — 1 change detected
+00:09:27 [INFO] watchfiles.main — 1 change detected
+00:09:28 [INFO] watchfiles.main — 1 change detected
+00:09:28 [INFO] watchfiles.main — 1 change detected
+00:09:28 [INFO] watchfiles.main — 1 change detected
+00:09:29 [INFO] watchfiles.main — 1 change detected
+00:09:29 [INFO] watchfiles.main — 1 change detected
+00:09:30 [INFO] watchfiles.main — 1 change detected
+00:09:30 [INFO] watchfiles.main — 1 change detected
+00:09:30 [INFO] watchfiles.main — 1 change detected
+00:09:31 [INFO] watchfiles.main — 1 change detected
+00:09:31 [INFO] watchfiles.main — 1 change detected
+00:09:32 [INFO] watchfiles.main — 1 change detected
+00:09:32 [INFO] watchfiles.main — 1 change detected
+00:09:32 [INFO] watchfiles.main — 1 change detected
+00:09:33 [INFO] watchfiles.main — 1 change detected
+00:09:33 [INFO] watchfiles.main — 1 change detected
+00:09:34 [INFO] watchfiles.main — 1 change detected
+00:09:34 [INFO] watchfiles.main — 1 change detected
+00:09:34 [INFO] watchfiles.main — 5 changes detected
+00:09:35 [INFO] watchfiles.main — 1 change detected
+00:09:35 [INFO] watchfiles.main — 1 change detected
+00:09:36 [INFO] watchfiles.main — 1 change detected
+00:09:36 [INFO] watchfiles.main — 1 change detected
+00:09:36 [INFO] watchfiles.main — 1 change detected
+00:09:37 [INFO] watchfiles.main — 1 change detected
+00:09:37 [INFO] watchfiles.main — 1 change detected
+00:09:38 [INFO] watchfiles.main — 1 change detected
+00:09:38 [INFO] watchfiles.main — 1 change detected
+00:09:38 [INFO] watchfiles.main — 1 change detected
+00:09:39 [INFO] watchfiles.main — 1 change detected
+00:09:39 [INFO] watchfiles.main — 1 change detected
+00:09:40 [INFO] watchfiles.main — 1 change detected
+00:09:40 [INFO] watchfiles.main — 1 change detected
+00:09:40 [INFO] watchfiles.main — 1 change detected
+00:09:41 [INFO] watchfiles.main — 1 change detected
+00:09:41 [INFO] watchfiles.main — 1 change detected
+00:09:42 [INFO] watchfiles.main — 1 change detected
+00:09:42 [INFO] watchfiles.main — 1 change detected
+00:09:42 [INFO] watchfiles.main — 1 change detected
+00:09:43 [INFO] watchfiles.main — 1 change detected
+00:09:43 [INFO] watchfiles.main — 1 change detected
+00:09:44 [INFO] watchfiles.main — 1 change detected
+00:09:44 [INFO] watchfiles.main — 1 change detected
+00:09:45 [INFO] watchfiles.main — 1 change detected
+00:09:45 [INFO] watchfiles.main — 1 change detected
+00:09:45 [INFO] watchfiles.main — 1 change detected
+00:09:46 [INFO] watchfiles.main — 1 change detected
+00:09:46 [INFO] watchfiles.main — 1 change detected
+00:09:47 [INFO] watchfiles.main — 1 change detected
+00:09:47 [INFO] watchfiles.main — 1 change detected
+00:09:47 [INFO] watchfiles.main — 1 change detected
+00:09:48 [INFO] watchfiles.main — 1 change detected
+00:09:48 [INFO] watchfiles.main — 1 change detected
+00:09:49 [INFO] watchfiles.main — 1 change detected
+00:09:49 [INFO] watchfiles.main — 1 change detected
+00:09:49 [INFO] watchfiles.main — 1 change detected
+00:09:50 [INFO] watchfiles.main — 1 change detected
+00:09:50 [INFO] watchfiles.main — 1 change detected
+00:09:51 [INFO] watchfiles.main — 1 change detected
+00:09:51 [INFO] watchfiles.main — 1 change detected
+00:09:51 [INFO] watchfiles.main — 1 change detected
+00:09:52 [INFO] watchfiles.main — 1 change detected
+00:09:52 [INFO] watchfiles.main — 1 change detected
+00:09:53 [INFO] watchfiles.main — 1 change detected
+00:09:53 [INFO] watchfiles.main — 1 change detected
+00:09:53 [INFO] watchfiles.main — 1 change detected
+00:09:54 [INFO] watchfiles.main — 1 change detected
+00:09:54 [INFO] watchfiles.main — 1 change detected
+00:09:55 [INFO] watchfiles.main — 1 change detected
+00:09:55 [INFO] watchfiles.main — 1 change detected
+00:09:55 [INFO] watchfiles.main — 1 change detected
+00:09:56 [INFO] watchfiles.main — 1 change detected
+00:09:56 [INFO] watchfiles.main — 1 change detected
+00:09:57 [INFO] watchfiles.main — 1 change detected
+00:09:57 [INFO] watchfiles.main — 1 change detected
+00:09:57 [INFO] watchfiles.main — 1 change detected
+00:09:58 [INFO] watchfiles.main — 1 change detected
+00:09:58 [INFO] watchfiles.main — 1 change detected
+00:09:59 [INFO] watchfiles.main — 1 change detected
+00:09:59 [INFO] watchfiles.main — 1 change detected
+00:09:59 [INFO] watchfiles.main — 1 change detected
+00:10:00 [INFO] watchfiles.main — 1 change detected
+00:10:00 [INFO] watchfiles.main — 1 change detected
+00:10:01 [INFO] watchfiles.main — 1 change detected
+00:10:01 [INFO] watchfiles.main — 1 change detected
+00:10:01 [INFO] watchfiles.main — 1 change detected
+00:10:02 [INFO] watchfiles.main — 1 change detected
+00:10:02 [INFO] watchfiles.main — 1 change detected
+00:10:03 [INFO] watchfiles.main — 1 change detected
+00:10:03 [INFO] watchfiles.main — 1 change detected
+00:10:03 [INFO] watchfiles.main — 1 change detected
+00:10:04 [INFO] watchfiles.main — 1 change detected
+00:10:04 [INFO] watchfiles.main — 1 change detected
+00:10:05 [INFO] watchfiles.main — 1 change detected
+00:10:05 [INFO] watchfiles.main — 1 change detected
+00:10:05 [INFO] watchfiles.main — 1 change detected
+00:10:06 [INFO] watchfiles.main — 1 change detected
+00:10:06 [INFO] watchfiles.main — 1 change detected
+00:10:07 [INFO] watchfiles.main — 1 change detected
+00:10:07 [INFO] watchfiles.main — 1 change detected
+00:10:07 [INFO] watchfiles.main — 1 change detected
+00:10:08 [INFO] watchfiles.main — 1 change detected
+00:10:08 [INFO] watchfiles.main — 1 change detected
+00:10:09 [INFO] watchfiles.main — 1 change detected
+00:10:09 [INFO] watchfiles.main — 1 change detected
+00:10:09 [INFO] watchfiles.main — 1 change detected
+00:10:10 [INFO] watchfiles.main — 1 change detected
+00:10:10 [INFO] watchfiles.main — 1 change detected
+00:10:11 [INFO] watchfiles.main — 1 change detected
+00:10:11 [INFO] watchfiles.main — 1 change detected
+00:10:12 [INFO] watchfiles.main — 1 change detected
+00:10:12 [INFO] watchfiles.main — 1 change detected
+00:10:12 [INFO] watchfiles.main — 1 change detected
+00:10:13 [INFO] watchfiles.main — 1 change detected
+00:10:13 [INFO] watchfiles.main — 1 change detected
+00:10:14 [INFO] watchfiles.main — 1 change detected
+00:10:14 [INFO] watchfiles.main — 1 change detected
+00:10:14 [INFO] watchfiles.main — 1 change detected
+00:10:15 [INFO] watchfiles.main — 1 change detected
+00:10:15 [INFO] watchfiles.main — 1 change detected
+00:10:16 [INFO] watchfiles.main — 1 change detected
+00:10:16 [INFO] watchfiles.main — 1 change detected
+00:10:16 [INFO] watchfiles.main — 1 change detected
+00:10:17 [INFO] watchfiles.main — 1 change detected
+00:10:17 [INFO] watchfiles.main — 1 change detected
+00:10:18 [INFO] watchfiles.main — 1 change detected
+00:10:18 [INFO] watchfiles.main — 1 change detected
+00:10:18 [INFO] watchfiles.main — 1 change detected
+00:10:19 [INFO] watchfiles.main — 1 change detected
+00:10:19 [INFO] watchfiles.main — 1 change detected
+00:10:20 [INFO] watchfiles.main — 1 change detected
+00:10:20 [INFO] watchfiles.main — 1 change detected
+00:10:20 [INFO] watchfiles.main — 1 change detected
+00:10:21 [INFO] watchfiles.main — 1 change detected
+00:10:21 [INFO] watchfiles.main — 1 change detected
+00:10:22 [INFO] watchfiles.main — 1 change detected
+00:10:22 [INFO] watchfiles.main — 1 change detected
+00:10:22 [INFO] watchfiles.main — 1 change detected
+00:10:23 [INFO] watchfiles.main — 1 change detected
+00:20:04 [WARNING] core.telemetry.prometheus_telemetry_adapter — Prometheus query failed (cpu_percent): HTTPConnectionPool(host='localhost', port=9090): Max retries exceeded with url: /api/v1/query?query=cpu_percent (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x000001F00C191040>: Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it'))
+00:20:09 [WARNING] core.telemetry.prometheus_telemetry_adapter — Prometheus query failed (memory_percent): HTTPConnectionPool(host='localhost', port=9090): Max retries exceeded with url: /api/v1/query?query=memory_percent (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x000001F00EDD4050>: Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it'))
+00:20:13 [WARNING] core.telemetry.prometheus_telemetry_adapter — Prometheus query failed (disk_iops): HTTPConnectionPool(host='localhost', port=9090): Max retries exceeded with url: /api/v1/query?query=disk_iops (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x000001F00EDD45A0>: Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it'))
+00:20:17 [WARNING] core.telemetry.prometheus_telemetry_adapter — Prometheus query failed (power_watts): HTTPConnectionPool(host='localhost', port=9090): Max retries exceeded with url: /api/v1/query?query=power_watts (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x000001F00EDD4AF0>: Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it'))
+00:20:21 [WARNING] core.telemetry.prometheus_telemetry_adapter — Prometheus query failed (temperature_celsius): HTTPConnectionPool(host='localhost', port=9090): Max retries exceeded with url: /api/v1/query?query=temperature_celsius (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x000001F00EDD5040>: Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it'))
+00:20:25 [WARNING] core.telemetry.prometheus_telemetry_adapter — Prometheus query failed (latency_ms): HTTPConnectionPool(host='localhost', port=9090): Max retries exceeded with url: /api/v1/query?query=latency_ms (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x000001F00EDD5590>: Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it'))
+00:20:29 [WARNING] core.telemetry.prometheus_telemetry_adapter — Prometheus query failed (packet_loss_percent): HTTPConnectionPool(host='localhost', port=9090): Max retries exceeded with url: /api/v1/query?query=packet_loss_percent (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x000001F00D19BF00>: Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it'))
+00:20:33 [WARNING] core.telemetry.prometheus_telemetry_adapter — Prometheus query failed (bandwidth_mbps): HTTPConnectionPool(host='localhost', port=9090): Max retries exceeded with url: /api/v1/query?query=bandwidth_mbps (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x000001F00EDD5040>: Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it'))

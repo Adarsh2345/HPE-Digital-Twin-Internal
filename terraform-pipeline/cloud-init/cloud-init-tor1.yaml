@@ -2,6 +2,10 @@
 # cloud-init for droplet-1-tor1
 # Installs Docker, deploys docker-compose.yml, and starts containers
 
+ssh_authorized_keys:
+  - ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOQUoRsprjs5iC21GSAcVD5CggBC0oIUaum+pF26C5Oc adarsh@LAPTOP-81IT6SP0
+  - ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIK6e/cEVchZcTRLEiL0KCscsCnlV6ODtn5EHZKtpKWSx hpe-digital-twin-deploy
+
 package_update: true
 package_upgrade: false
 

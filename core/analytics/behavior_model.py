@@ -102,10 +102,10 @@ class BehaviorModel:
 
             X_tr, X_te, y_tr, y_te = train_test_split(Xc, yc, test_size=0.2, random_state=42)
             rf = RandomForestRegressor(
-                n_estimators=100,
+                n_estimators=10,
                 max_features="sqrt",
                 random_state=42,
-                n_jobs=-1,
+                n_jobs=1,
             )
             rf.fit(X_tr, y_tr)
             r2 = rf.score(X_te, y_te)

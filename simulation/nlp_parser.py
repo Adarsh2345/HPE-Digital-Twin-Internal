@@ -10,6 +10,26 @@ from simulation.models import SimulationRequest, normalize_request
 
 logger = logging.getLogger(__name__)
 
+# Maps LLM rack aliases → canonical droplet/rack names used in target_rack_id.
+# These are NOT graph node IDs — they are the droplet prefix of composite IDs.
+_RACK_ALIASES: dict[str, str] = {
+    "rack1":          "droplet-1-tor1",
+    "rack 1":         "droplet-1-tor1",
+    "tor1":           "droplet-1-tor1",
+    "tor-1":          "droplet-1-tor1",
+    "first rack":     "droplet-1-tor1",
+    "droplet-1-tor1": "droplet-1-tor1",
+    "rack2":          "droplet-2-tor2",
+    "rack 2":         "droplet-2-tor2",
+    "tor2":           "droplet-2-tor2",
+    "tor-2":          "droplet-2-tor2",
+    "second rack":    "droplet-2-tor2",
+    "droplet-2-tor2": "droplet-2-tor2",
+    "storage":        "droplet-4-storage",
+    "storage rack":   "droplet-4-storage",
+    "droplet-4-storage": "droplet-4-storage",
+}
+
 _TRANSIENT_STATUS_CODES = [408, 500, 502, 503, 504]
 _RESPONSE_SCHEMA = {
     "type": "object",
@@ -45,18 +65,14 @@ _RESPONSE_SCHEMA = {
 
 def parse_request(text: str, inventory_ids: Iterable[str] = ()) -> SimulationRequest:
     """
-    Primary entry point. Tries Gemini first, then rule-based patterns,
-    then falls back to blast_radius_query with parser_used=fallback.
+    Primary entry point. Tries LLM first, then falls back to
+    blast_radius_query with parser_used=fallback.
     """
     inventory = set(inventory_ids)
 
     llm = _gemini_parse(text, inventory)
     if llm is not None:
         return llm
-
-    ruled = _rule_parse(text, inventory)
-    if ruled is not None:
-        return ruled
 
     return _fallback(text)
 
@@ -76,99 +92,6 @@ def _resolve_id(token: str, inventory: set[str]) -> str | None:
     )
 
 
-def _rule_parse(text: str, inventory: set[str]) -> SimulationRequest | None:
-    """Deterministic regex parser for common prompt patterns (no Gemini required)."""
-    if not inventory:
-        return None
-
-    raw = text.strip()
-    t = raw.lower()
-
-    m = re.match(r"move\s+(\S+)\s+to\s+(\S+)", t)
-    if m:
-        server_id = _resolve_id(m.group(1), inventory)
-        router_id = _resolve_id(m.group(2), inventory)
-        if server_id and router_id:
-            return normalize_request({
-                "action": "move_server",
-                "server_id": server_id,
-                "target_router_id": router_id,
-                "request_text": raw,
-                "parser_used": "rule",
-            })
-
-    m = re.match(r"add\s+compute(?:\s+node)?\s+(\S+)\s+to\s+(\S+)", t)
-    if m:
-        node_id = _resolve_id(m.group(1), inventory)
-        router_id = _resolve_id(m.group(2), inventory)
-        if router_id:
-            payload: dict = {
-                "action": "add_compute",
-                "target_router_id": router_id,
-                "request_text": raw,
-                "parser_used": "rule",
-            }
-            if node_id:
-                payload["node_id"] = node_id
-            return normalize_request(payload)
-
-    m = re.match(r"remove\s+(\S+)", t)
-    if m:
-        node_id = _resolve_id(m.group(1), inventory)
-        if node_id:
-            return normalize_request({
-                "action": "remove_node",
-                "node_id": node_id,
-                "request_text": raw,
-                "parser_used": "rule",
-            })
-
-    m = re.match(
-        r"inject\s+cpu\s+([\d.]+)\s*%?\s+on\s+(\S+)",
-        t,
-    )
-    if m:
-        node_id = _resolve_id(m.group(2), inventory)
-        if node_id:
-            return normalize_request({
-                "action": "inject_compute",
-                "node_id": node_id,
-                "cpu_pct": float(m.group(1)),
-                "request_text": raw,
-                "parser_used": "rule",
-            })
-
-    m = re.match(
-        r"latency\s+([\d.]+)\s*ms\s+(\S+)\s+to\s+(\S+)",
-        t,
-    )
-    if m:
-        source_id = _resolve_id(m.group(2), inventory)
-        target_id = _resolve_id(m.group(3), inventory)
-        if source_id and target_id:
-            return normalize_request({
-                "action": "inject_network",
-                "source_node_id": source_id,
-                "target_node_id": target_id,
-                "latency_ms": float(m.group(1)),
-                "request_text": raw,
-                "parser_used": "rule",
-            })
-
-    m = re.match(r"([\d.]+)\s+iops\s+on\s+(\S+)", t)
-    if m:
-        node_id = _resolve_id(m.group(2), inventory)
-        if node_id:
-            return normalize_request({
-                "action": "inject_storage",
-                "node_id": node_id,
-                "disk_iops": float(m.group(1)),
-                "request_text": raw,
-                "parser_used": "rule",
-            })
-
-    return None
-
 
 def _gemini_parse(text: str, inventory: set[str]) -> SimulationRequest | None:
     # Read from settings so .env is respected
@@ -178,10 +101,10 @@ def _gemini_parse(text: str, inventory: set[str]) -> SimulationRequest | None:
     )
 
     if not GEMINI_API_KEY or not GEMINI_MODEL:
-        logger.warning("Gemini enabled but GEMINI_API_KEY or GEMINI_MODEL not set")
+        logger.warning("LLM enabled but API key or model not set")
         return None
 
-    # Build a short-name inventory so Gemini gets human-readable IDs
+    # Build a short-name inventory so the LLM gets human-readable IDs
     # e.g. "droplet-1-tor1/server-1" → also expose "server-1"
     short_inventory = set()
     for node_id in inventory:
@@ -198,12 +121,33 @@ def _gemini_parse(text: str, inventory: set[str]) -> SimulationRequest | None:
             http_options=_http_options(types, GEMINI_TIMEOUT_SECONDS, GEMINI_RETRY_ATTEMPTS),
         )
 
+        # Build rack→router mapping so the LLM can pick the right rack
+        rack_router_map: dict[str, str] = {}
+        for node_id in inventory:
+            if "/" in node_id:
+                rack, short = node_id.split("/", 1)
+                if short.startswith("router-"):
+                    rack_router_map[rack] = short
+
+        rack_info = "; ".join(
+            f"{rack} contains {router}" for rack, router in sorted(rack_router_map.items())
+        ) or "no rack mapping available"
+
         system_prompt = (
-            "You are an infrastructure intent parser. "
-            "Return ONE flat JSON object only — no markdown, no code fences, no nesting under 'params'. "
-            "Do NOT invent node IDs; only use IDs from the inventory provided. "
-            "Use the short name (e.g. 'server-1') not the composite path. "
-            "Supported actions and their required fields:\n"
+            "You are an infrastructure intent parser for an HPE data-centre digital twin. "
+            "Return ONE flat JSON object only — no markdown, no code fences, no nesting. "
+            "RULES:\n"
+            "  1. Only use node IDs that appear in the inventory below. Never invent IDs.\n"
+            "  2. Use the SHORT name (e.g. 'server-1'), not the composite path.\n"
+            "  3. For add_compute: set target_router_id to the router of the chosen rack, "
+            "and target_rack_id to the rack name (droplet-X-torY). "
+            "If the user says 'rack 1' or 'tor1' or 'first rack' use rack droplet-1-tor1 with router-1. "
+            "If the user says 'rack 2' or 'tor2' or 'second rack' use rack droplet-2-tor2 with router-2.\n"
+            "  4. For inject_network: source_node_id and target_node_id must both be in inventory.\n"
+            "  5. For remove_node / inject_compute / inject_storage: node_id must be in inventory.\n"
+            "  6. If you cannot confidently map the request to an action and real inventory IDs, "
+            "return {\"action\": \"blast_radius_query\", \"failed_device_id\": \"__unresolved__\"}.\n"
+            "Supported actions:\n"
             "  move_server       → server_id, target_router_id\n"
             "  add_compute       → target_router_id, target_rack_id\n"
             "  remove_node       → node_id\n"
@@ -212,6 +156,7 @@ def _gemini_parse(text: str, inventory: set[str]) -> SimulationRequest | None:
             "  inject_storage    → node_id, [disk_iops]\n"
             "  migrate_rack      → node_id, target_rack_id, target_router_id\n"
             "  blast_radius_query → failed_device_id\n"
+            f"Rack layout: {rack_info}\n"
             f"Inventory (short names): {sorted(short_inventory)}\n"
             f"Request: {text}"
         )
@@ -235,53 +180,62 @@ def _gemini_parse(text: str, inventory: set[str]) -> SimulationRequest | None:
         if isinstance(nested, dict):
             payload.update(nested)
 
-        # Handle common Gemini field name variations
+        # Handle common LLM field name variations
         if payload.get("action") == "move_server" and "destination_id" in payload:
             payload["target_router_id"] = payload.pop("destination_id")
 
-        # --- FIX: Convert Short/Typo Names to Canonical Composite IDs ---
-        target_keys = [
-            "node_id", "server_id", "source_node_id", "target_node_id", 
-            "target_router_id", "target_rack_id", "failed_device_id"
+        # Resolve short/composite node IDs to canonical graph node IDs.
+        # target_rack_id is intentionally excluded — rack names (droplet-X-torY)
+        # are droplet prefixes, not graph nodes, so they must not be validated
+        # against the node inventory.
+        node_id_keys = [
+            "node_id", "server_id", "source_node_id", "target_node_id",
+            "target_router_id", "failed_device_id",
         ]
-        for key in target_keys:
+        for key in node_id_keys:
             if key in payload and isinstance(payload[key], str) and payload[key]:
                 val = payload[key]
-                # Strip out any bad/missing dash prefix strings parsed from typo inputs
                 if "/" in val:
                     val = val.split("/", 1)[1]
-                
-                # Match back exactly to long NetworkX graph identifiers 
-                full_match = next((nid for nid in inventory if nid.endswith(f"/{val}") or nid == val), None)
+                full_match = next(
+                    (nid for nid in inventory if nid.endswith(f"/{val}") or nid == val),
+                    None,
+                )
                 if full_match:
                     payload[key] = full_match
+
+        # Normalise rack aliases the LLM may return (e.g. "tor2" → "droplet-2-tor2")
+        rack_val = payload.get("target_rack_id", "")
+        if rack_val:
+            rack_val = _RACK_ALIASES.get(rack_val.lower(), rack_val)
+            payload["target_rack_id"] = rack_val
 
         request = normalize_request({
             **payload,
             "request_text": text,
-            "parser_used": "gemini",
+            "parser_used": "llm",
         })
 
-        # Validate that resolved IDs exist in final system paths
+        # Validate that graph-node IDs exist in inventory.
+        # Exclude target_rack_id — it is a rack/droplet name, not a graph node.
+        dump = request.model_dump()
         supplied = {
-            v for k, v in request.model_dump().items()
-            if k.endswith("_id") and isinstance(v, str) and v
+            v for k, v in dump.items()
+            if k.endswith("_id") and k != "target_rack_id"
+            and isinstance(v, str) and v
         }
-        # Include specific structural identifier metrics 
-        if "node_id" in request.model_dump():
-            supplied.add(request.node_id)
 
-        if inventory and not supplied.issubset(inventory | short_inventory | {""}):
-            logger.warning(f"Gemini returned IDs not in inventory: {supplied - inventory}")
+        if inventory and not supplied.issubset(inventory | short_inventory | {"", "__unresolved__"}):
+            logger.warning(f"LLM returned IDs not in inventory: {supplied - (inventory | short_inventory)}")
             return None
 
-        logger.info(f"Gemini parsed and matched canonical path: action={request.action}, ids={supplied}")
+        logger.info(f"LLM parsed and matched canonical path: action={request.action}, ids={supplied}")
         return request
 
     except Exception as exc:
         status = getattr(exc, "code", None)
         logger.warning(
-            "Gemini parser failed, falling back to rule-based "
+            "LLM parser failed, falling back "
             "(model=%s, status=%s, error=%s: %s)",
             GEMINI_MODEL, status, type(exc).__name__, str(exc)[:200],
         )

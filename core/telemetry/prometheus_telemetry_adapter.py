@@ -66,8 +66,8 @@ def fetch_snapshot(prometheus_url: str, graph_node_ids: list[str]) -> dict:
     def resolve(name: str | None, droplet: str | None) -> str | None:
         if not name:
             return None
-        if droplet and (droplet, name) in by_droplet_and_name:
-            return by_droplet_and_name[(droplet, name)]
+        if droplet:
+            return by_droplet_and_name.get((droplet, name))
         return bare_to_full.get(name)
 
     nodes_map: dict[str, dict] = {}

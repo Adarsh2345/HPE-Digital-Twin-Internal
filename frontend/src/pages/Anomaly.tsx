@@ -812,7 +812,7 @@ export default function AnomalyPage() {
         <div className="space-y-6">
           <Card
             title="Diagnostic Inspector"
-            subtitle="Deep statistical insights and Gemini remediation suggestions"
+            subtitle="Deep statistical insights and AI remediation suggestions"
           >
             {inspectorNode ? (
               <div className="space-y-6">
@@ -867,7 +867,7 @@ export default function AnomalyPage() {
                 <div>
                   <h4 className="text-xs font-semibold text-white uppercase tracking-wider mb-2 flex items-center gap-1">
                     <Sparkles className="w-3.5 h-3.5 text-accent animate-pulse" />
-                    Gemini Remediation Advice
+                    Remediation Advice
                   </h4>
                   {inspectorNode.recommendations && inspectorNode.recommendations.length > 0 ? (
                     <ul className="space-y-2">
