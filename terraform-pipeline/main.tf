@@ -34,9 +34,10 @@ locals {
 
   # Map each droplet name to its cloud-init file
   cloud_init_map = {
-    "droplet-1-tor1" = file("${path.module}/cloud-init/cloud-init-tor1.yaml")
-    "droplet-2-tor2" = file("${path.module}/cloud-init/cloud-init-tor2.yaml")
-    "droplet-3-mgmt" = file("${path.module}/cloud-init/cloud-init-mgmt.yaml")
+    "droplet-1-tor1"    = file("${path.module}/cloud-init/cloud-init-tor1.yaml")
+    "droplet-2-tor2"    = file("${path.module}/cloud-init/cloud-init-tor2.yaml")
+    "droplet-3-mgmt"    = file("${path.module}/cloud-init/cloud-init-mgmt.yaml")
+    "droplet-4-storage" = file("${path.module}/cloud-init/cloud-init-storage.yaml")
   }
 }
 

@@ -68,3 +68,22 @@ pip-delete-this-directory.txt
 Thumbs.db
 models/*.pkl
 !models/anomaly_detector.pkl
+
+# ==========================================
+# 6. TERRAFORM STATE (sensitive — never commit)
+# ==========================================
+terraform-pipeline/terraform.tfstate
+terraform-pipeline/terraform.tfstate.backup
+terraform-pipeline/.terraform/
+terraform-pipeline/.terraform.lock.hcl
+
+# ==========================================
+# 7. MIMOCODE / AGENT MEMORY (local only)
+# ==========================================
+.mimocode/
+
+# ==========================================
+# 8. MISCELLANEOUS
+# ==========================================
+crash_log.txt
+*.log
