@@ -65,7 +65,7 @@ const PIPELINE_STEPS = [
 // Impact + projection take ~2-3s.
 // Scenario loop is the heaviest — runs 2+ full deepcopy+validate cycles (~4-6s).
 // Validate + recommend are quick but come after scenarios.
-const STEP_DELAYS = [0, 800, 1600, 2600, 4000, 5600, 8000, 10000]
+const STEP_DELAYS = [0, 1200, 2400, 3800, 6000, 8400, 11500, 13800]
 
 const EXAMPLE_PROMPTS = [
   'move server-1 to router-2',

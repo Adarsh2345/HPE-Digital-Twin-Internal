@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, type ReactNode } from 'react'
 import { Loader2, Play, ChevronDown, CheckCircle2, XCircle, ArrowRight } from 'lucide-react'
 import { PageHeader, Card, ErrorBanner } from '../components/ui'
 import { getActions, runSimulation, type SimulationAction, type SimulationResult } from '../api/simulation'
+import { extractApiErrorDetail, type ApiErrorDetailItem } from '../api/metrics'
 import { useFetch } from '../hooks/usePolling'
 import {
   formatActionLabel,
@@ -63,6 +64,7 @@ export default function SimulationPage() {
   const [running, setRunning] = useState(false)
   const [result, setResult] = useState<SimulationResult | null>(null)
   const [runError, setRunError] = useState<string | null>(null)
+  const [runErrorDetail, setRunErrorDetail] = useState<ApiErrorDetailItem[] | null>(null)
 
   useEffect(() => {
     if (actionsData?.actions.length && !selectedAction) {
@@ -86,7 +88,7 @@ export default function SimulationPage() {
 
   const handleRun = async () => {
     if (!selectedAction) return
-    setRunning(true); setRunError(null); setResult(null)
+    setRunning(true); setRunError(null); setRunErrorDetail(null); setResult(null)
     try {
       const parsedParams: Record<string, unknown> = {}
       for (const [key, val] of Object.entries(params)) {
@@ -97,6 +99,7 @@ export default function SimulationPage() {
       setResult(res)
     } catch (e) {
       setRunError(e instanceof Error ? e.message : 'Simulation failed')
+      setRunErrorDetail(extractApiErrorDetail(e))
     } finally {
       setRunning(false)
     }
@@ -184,7 +187,28 @@ export default function SimulationPage() {
         </button>
       </div>
 
-      {runError && <ErrorBanner message={runError} />}
+      {runError && (
+        <div className="card p-5 mb-4 border-l-2 border-l-red-400">
+          <div className="flex items-start gap-3">
+            <XCircle className="w-5 h-5 text-red-400 shrink-0 mt-0.5" />
+            <div className="flex-1 min-w-0">
+              <p className="text-base font-bold text-red-400 mb-1">Simulation failed</p>
+              <p className="text-sm text-gray-300">{runError}</p>
+              {runErrorDetail && runErrorDetail.length > 0 && (
+                <ul className="mt-3 space-y-1.5">
+                  {(runErrorDetail[0]?.details?.length ? runErrorDetail[0].details : runErrorDetail).map((d, i) => (
+                    <li key={i} className="text-xs text-red-300/80 pl-3 border-l border-red-500/30 font-mono">
+                      {d.path && <span className="text-red-400/90">{d.path}: </span>}
+                      {d.message}
+                      {d.value ? <span className="text-muted"> (got: {d.value})</span> : null}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Result ── */}
       {result && (
