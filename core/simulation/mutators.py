@@ -54,20 +54,35 @@ class TopologyMutator:
     # ------------------------------------------------------------------ #
     # EXISTING: Add new compute node                                       #
     # ------------------------------------------------------------------ #
-    def add_compute_node(self, G: nx.DiGraph, node_id: str, router_id: str,
-                         ip: str = "", role: str = "compute-node") -> dict:
+    def add_compute_node(
+        self,
+        G: nx.DiGraph,
+        node_id: str,
+        router_id: str,
+        ip: str = "",
+        role: str = "compute-node",
+        cpu_percent: float = 20.0,
+        memory_percent: float = 30.0,
+        power_watts: float = 180.0,
+    ) -> dict:
         if node_id in G.nodes:
             return {"success": False, "error": f"Node '{node_id}' already exists"}
         if router_id not in G.nodes:
             return {"success": False, "error": f"Router '{router_id}' not found"}
 
         subnet = G.nodes[router_id].get("subnet", "")
+        metrics = {
+            "cpu_percent":    float(cpu_percent),
+            "memory_percent": float(memory_percent),
+            "power_watts":    float(power_watts),
+        }
         G.add_node(node_id, id=node_id, name=node_id, role=role, ip=ip,
                    image="ubuntu:24.04", droplet="", description=f"Added: {node_id}",
-                   subnet=subnet, state="healthy", metrics={})
+                   subnet=subnet, state="healthy", metrics=metrics,
+                   cpu=float(cpu_percent), memory=float(memory_percent))
         G.add_edge(router_id, node_id,
                    description=f"New link to {node_id}", state="active", metrics={})
-        logger.info(f"Added node '{node_id}' under router '{router_id}'")
+        logger.info(f"Added node '{node_id}' under router '{router_id}' cpu={cpu_percent}% power={power_watts}W")
         return {"success": True, "node_id": node_id, "router": router_id, "subnet": subnet}
 
     # ------------------------------------------------------------------ #
@@ -254,6 +269,9 @@ class TopologyMutator:
                 params["router_id"],
                 ip=params.get("ip", ""),
                 role=params.get("role", "compute-node"),
+                cpu_percent=float(params.get("cpu_percent", params.get("cpu_pct", 20.0))),
+                memory_percent=float(params.get("memory_percent", params.get("memory_pct", 30.0))),
+                power_watts=float(params.get("power_watts", params.get("max_power_w", 180.0))),
             )
 
         elif action == "remove_node":

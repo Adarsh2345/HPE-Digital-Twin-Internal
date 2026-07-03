@@ -6,9 +6,21 @@ import os
 import re
 from typing import Iterable
 
+from pydantic import ValidationError
+
 from simulation.models import SimulationRequest, normalize_request
 
 logger = logging.getLogger(__name__)
+
+
+class ParseFailure(Exception):
+    """Raised when the NLP pipeline can point to a specific reason a request could not be resolved."""
+
+    def __init__(self, code: str, message: str, details: list[dict] | None = None):
+        super().__init__(message)
+        self.code = code
+        self.message = message
+        self.details = details or []
 
 # Maps LLM rack aliases → canonical droplet/rack names used in target_rack_id.
 # These are NOT graph node IDs — they are the droplet prefix of composite IDs.
@@ -67,12 +79,19 @@ def parse_request(text: str, inventory_ids: Iterable[str] = ()) -> SimulationReq
     """
     Primary entry point. Tries LLM first, then falls back to
     blast_radius_query with parser_used=fallback.
+
+    Raises ParseFailure when a specific, user-facing reason is known
+    (e.g. a value failed validation, or the LLM referenced an unknown node).
+    Falls back silently to blast_radius_query only when no LLM signal is
+    available at all (e.g. API key missing, transport error).
     """
     inventory = set(inventory_ids)
 
-    llm = _gemini_parse(text, inventory)
+    llm, failure = _gemini_parse(text, inventory)
     if llm is not None:
         return llm
+    if failure is not None:
+        raise failure
 
     return _fallback(text)
 
@@ -93,7 +112,9 @@ def _resolve_id(token: str, inventory: set[str]) -> str | None:
 
 
 
-def _gemini_parse(text: str, inventory: set[str]) -> SimulationRequest | None:
+def _gemini_parse(
+    text: str, inventory: set[str]
+) -> tuple[SimulationRequest | None, ParseFailure | None]:
     # Read from settings so .env is respected
     from config.settings import (
         GEMINI_API_KEY, GEMINI_MODEL,
@@ -102,7 +123,7 @@ def _gemini_parse(text: str, inventory: set[str]) -> SimulationRequest | None:
 
     if not GEMINI_API_KEY or not GEMINI_MODEL:
         logger.warning("LLM enabled but API key or model not set")
-        return None
+        return None, None
 
     # Build a short-name inventory so the LLM gets human-readable IDs
     # e.g. "droplet-1-tor1/server-1" → also expose "server-1"
@@ -161,10 +182,10 @@ def _gemini_parse(text: str, inventory: set[str]) -> SimulationRequest | None:
             f"Request: {text}"
         )
 
-        response = client.models.generate_content(
-            model=GEMINI_MODEL,
-            contents=system_prompt,
-            config=_generation_config(types, GEMINI_MODEL),
+        response = _generate_with_retry(
+            client, GEMINI_MODEL, system_prompt,
+            _generation_config(types, GEMINI_MODEL),
+            GEMINI_RETRY_ATTEMPTS,
         )
 
         raw_text = response.text.strip()
@@ -210,11 +231,35 @@ def _gemini_parse(text: str, inventory: set[str]) -> SimulationRequest | None:
             rack_val = _RACK_ALIASES.get(rack_val.lower(), rack_val)
             payload["target_rack_id"] = rack_val
 
-        request = normalize_request({
-            **payload,
-            "request_text": text,
-            "parser_used": "llm",
-        })
+        try:
+            request = normalize_request({
+                **payload,
+                "request_text": text,
+                "parser_used": "llm",
+            })
+        except ValidationError as exc:
+            details = [
+                {
+                    "path": ".".join(str(p) for p in item["loc"]),
+                    "message": item["msg"],
+                    "value": str(item.get("input", ""))[:200],
+                }
+                for item in exc.errors(include_url=False)
+            ]
+            summary = "; ".join(f"{d['path']}: {d['message']}" for d in details)
+            logger.warning(f"LLM output failed field validation: {summary}")
+            return None, ParseFailure(
+                "NLP_VALUE_OUT_OF_RANGE",
+                f"The request was understood, but one or more values are invalid: {summary}.",
+                details,
+            )
+
+        if request.action == "blast_radius_query" and payload.get("failed_device_id") == "__unresolved__":
+            return None, ParseFailure(
+                "NLP_ACTION_UNRECOGNISED",
+                "The assistant could not confidently map this request to a supported action. "
+                "Try naming the action explicitly (e.g. 'add', 'remove', 'move') along with a valid node ID.",
+            )
 
         # Validate that graph-node IDs exist in inventory.
         # Exclude target_rack_id — it is a rack/droplet name, not a graph node.
@@ -225,12 +270,24 @@ def _gemini_parse(text: str, inventory: set[str]) -> SimulationRequest | None:
             and isinstance(v, str) and v
         }
 
-        if inventory and not supplied.issubset(inventory | short_inventory | {"", "__unresolved__"}):
-            logger.warning(f"LLM returned IDs not in inventory: {supplied - (inventory | short_inventory)}")
-            return None
+        unknown_ids = supplied - (inventory | short_inventory)
+        if inventory and unknown_ids:
+            logger.warning(f"LLM returned IDs not in inventory: {unknown_ids}")
+            return None, ParseFailure(
+                "NLP_UNKNOWN_NODE",
+                f"The request referenced node(s) that don't exist in the current topology: {', '.join(sorted(unknown_ids))}.",
+                [{"path": "node_id", "message": "not found in inventory", "value": nid} for nid in sorted(unknown_ids)],
+            )
 
         logger.info(f"LLM parsed and matched canonical path: action={request.action}, ids={supplied}")
-        return request
+        return request, None
+
+    except (json.JSONDecodeError, KeyError, TypeError) as exc:
+        logger.warning(f"LLM returned malformed output: {type(exc).__name__}: {str(exc)[:200]}")
+        return None, ParseFailure(
+            "NLP_MALFORMED_RESPONSE",
+            "The assistant's response could not be interpreted. Please rephrase your request.",
+        )
 
     except Exception as exc:
         status = getattr(exc, "code", None)
@@ -239,7 +296,33 @@ def _gemini_parse(text: str, inventory: set[str]) -> SimulationRequest | None:
             "(model=%s, status=%s, error=%s: %s)",
             GEMINI_MODEL, status, type(exc).__name__, str(exc)[:200],
         )
-        return None
+        return None, ParseFailure(
+            "NLP_SERVICE_ERROR",
+            f"The natural-language service could not process this request ({type(exc).__name__}). Please try again.",
+        )
+
+def _generate_with_retry(client, model: str, prompt: str, config, retry_attempts: int):
+    """
+    Retry the network call itself on connection-level failures (DNS resolution,
+    connect timeout) that never produce an HTTP response and so are invisible
+    to the SDK's status-code-based retry_options.
+    """
+    import time
+
+    last_exc: Exception | None = None
+    for attempt in range(retry_attempts):
+        try:
+            return client.models.generate_content(model=model, contents=prompt, config=config)
+        except (ConnectionError, OSError) as exc:
+            last_exc = exc
+            if attempt < retry_attempts - 1:
+                logger.warning(
+                    "Gemini connection attempt %d/%d failed (%s), retrying...",
+                    attempt + 1, retry_attempts, type(exc).__name__,
+                )
+                time.sleep(0.5 * (2 ** attempt))
+    raise last_exc
+
 
 def _http_options(types, timeout_seconds: float, retry_attempts: int):
     return types.HttpOptions(

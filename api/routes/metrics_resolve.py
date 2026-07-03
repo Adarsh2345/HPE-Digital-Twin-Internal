@@ -7,7 +7,7 @@ from core.validation.validator_engine import ValidatorEngine
 from core.recommendations.recommendation_engine import RecommendationEngine
 from core.graph.graph_serializer import dict_to_graph
 from simulation.models import normalize_request
-from simulation.nlp_parser import parse_request
+from simulation.nlp_parser import parse_request, ParseFailure
 
 router = APIRouter(prefix="/api/v1/metrics", tags=["Metrics"])
 
@@ -25,22 +25,33 @@ def resolve_metrics(payload: dict = Body(...)):
     """
     try:
         base_graph = orchestrator.get_derived_graph()
-        
+
         # 1. Parse and extract structure/metric fields using Gemini -> Rule-based
-        request = (
-            parse_request(payload["request_text"], base_graph.nodes)
-            if set(payload) == {"request_text"}
-            else normalize_request(payload)
-        )
-        
-        # Check for unresolvable structural tokens 
-        if request.parser_used == "fallback" or request.action == "blast_radius_query" and request.failed_device_id == "__unresolved__":
+        try:
+            request = (
+                parse_request(payload["request_text"], base_graph.nodes)
+                if set(payload) == {"request_text"}
+                else normalize_request(payload)
+            )
+        except ParseFailure as exc:
             raise HTTPException(
                 status_code=422,
                 detail=[{
-                    "code": "NLP_REQUEST_UNRESOLVED",
+                    "code": exc.code,
                     "path": "request_text",
-                    "message": "Request text could not be mapped safely or mapped parameters did not match active inventory.",
+                    "message": exc.message,
+                    "details": exc.details,
+                }],
+            ) from None
+
+        # No LLM signal at all (e.g. API key/model not configured) — pure fallback.
+        if request.parser_used == "fallback":
+            raise HTTPException(
+                status_code=422,
+                detail=[{
+                    "code": "NLP_UNAVAILABLE",
+                    "path": "request_text",
+                    "message": "The natural-language assistant is currently unavailable. Please try again shortly.",
                 }],
             )
 
@@ -147,6 +158,8 @@ def _simulation_params(request_dict: dict, base_graph=None) -> dict:
         params["memory_percent"] = params.pop("memory_pct")
     if "power_w" in params:
         params["power_watts"] = params.pop("power_w")
+    if "max_power_w" in params:
+        params["power_watts"] = params.pop("max_power_w")
     if "packet_loss_pct" in params:
         params["packet_loss_percent"] = params.pop("packet_loss_pct")
 

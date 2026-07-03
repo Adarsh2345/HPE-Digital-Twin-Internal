@@ -32,10 +32,14 @@ export interface ResolveMetricsResponse {
   impact_predictions: Record<string, unknown>
 }
 
-export function resolveMetrics(requestText: string) {
-  return api<ResolveMetricsResponse>('POST', '/api/v1/metrics/resolve', {
-    request_text: requestText,
-  })
+export function resolveMetrics(
+  requestText: string,
+  override?: { action: string; params: Record<string, unknown> },
+) {
+  const body = override
+    ? { action: override.action, params: override.params, request_text: requestText, parser_used: 'form' }
+    : { request_text: requestText }
+  return api<ResolveMetricsResponse>('POST', '/api/v1/metrics/resolve', body)
 }
 
 export function formatApiError(error: unknown): string {
@@ -56,6 +60,24 @@ export function formatApiError(error: unknown): string {
     return error.message
   }
   return error instanceof Error ? error.message : 'Request failed'
+}
+
+export interface ApiErrorDetailItem {
+  code?: string
+  path?: string
+  message?: string
+  value?: string
+  details?: { path?: string; message?: string; value?: string }[]
+}
+
+/** Extract the structured `detail` array/object from a failed request, if present. */
+export function extractApiErrorDetail(error: unknown): ApiErrorDetailItem[] | null {
+  if (!(error instanceof ApiError)) return null
+  const body = error.body as { detail?: unknown } | undefined
+  const detail = body?.detail
+  if (Array.isArray(detail)) return detail as ApiErrorDetailItem[]
+  if (typeof detail === 'object' && detail !== null) return [detail as ApiErrorDetailItem]
+  return null
 }
 
 /** Prefer simulate response; fall back to resolve payload for unified display. */

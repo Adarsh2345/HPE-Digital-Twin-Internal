@@ -31,6 +31,8 @@ class AddCompute(RequestBase):
     max_power_w: float = Field(default=500, ge=0)
     nics: int = Field(default=1, ge=1)
     ip: str | None = None
+    cpu_pct: float | None = Field(default=None, ge=0, le=100)
+    memory_pct: float | None = Field(default=None, ge=0, le=100)
 
 
 class RemoveNode(RequestBase):
@@ -115,9 +117,11 @@ def normalize_request(payload: dict[str, Any]) -> SimulationRequest:
 
 
 def _ensure_rack(d: dict[str, Any]) -> dict[str, Any]:
-    """Fill target_rack_id from target_router_id if missing or empty."""
+    """Fill target_rack_id from target_router_id, or vice versa, whichever is missing."""
     if not d.get("target_rack_id"):
         d = {**d, "target_rack_id": _rack_from_router(d.get("target_router_id", ""))}
+    if not d.get("target_router_id"):
+        d = {**d, "target_router_id": _router_from_rack(d.get("target_rack_id", ""))}
     return d
 
 
@@ -130,9 +134,18 @@ _ROUTER_TO_RACK: dict[str, str] = {
     "droplet-4-storage/storage-router": "droplet-4-storage",
 }
 
+_RACK_TO_ROUTER: dict[str, str] = {
+    "droplet-1-tor1": "droplet-1-tor1/router-1",
+    "droplet-2-tor2": "droplet-2-tor2/router-2",
+    "droplet-4-storage": "droplet-4-storage/storage-router",
+}
+
 def _rack_from_router(router_id: str) -> str:
     if router_id in _ROUTER_TO_RACK:
         return _ROUTER_TO_RACK[router_id]
     if "/" in router_id:
         return router_id.split("/", 1)[0]
     return ""
+
+def _router_from_rack(rack_id: str) -> str:
+    return _RACK_TO_ROUTER.get(rack_id, "")

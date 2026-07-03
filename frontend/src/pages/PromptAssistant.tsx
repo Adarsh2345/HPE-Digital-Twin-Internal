@@ -3,8 +3,10 @@ import { Loader2 } from 'lucide-react'
 import {
   resolveMetrics,
   formatApiError,
+  extractApiErrorDetail,
   mergeSimulationDisplay,
   type ResolveMetricsResponse,
+  type ApiErrorDetailItem,
 } from '../api/metrics'
 import { type SimulationResult } from '../api/simulation'
 import {
@@ -638,20 +640,58 @@ async function revertInfrastructure(applied: ApplyResult, params: Record<string,
 }
 
 // ── Results panel ───────────────────────────────────────────────────────────
+const ERROR_COPY: Record<string, { title: string; badge: string; blurb: string }> = {
+  NLP_ACTION_UNRECOGNISED: {
+    title: 'Not understood',
+    badge: 'parse error',
+    blurb: 'The assistant could not confidently map this request to a supported action. Try rephrasing using the examples below.',
+  },
+  NLP_UNKNOWN_NODE: {
+    title: 'Unknown node',
+    badge: 'inventory mismatch',
+    blurb: 'The request named a node that does not exist in the current topology.',
+  },
+  NLP_VALUE_OUT_OF_RANGE: {
+    title: 'Invalid value',
+    badge: 'validation error',
+    blurb: 'The request was understood, but one or more values fall outside the allowed range.',
+  },
+  NLP_MALFORMED_RESPONSE: {
+    title: 'Could not interpret request',
+    badge: 'parse error',
+    blurb: 'The assistant’s response could not be interpreted. Please rephrase your request.',
+  },
+  NLP_SERVICE_ERROR: {
+    title: 'Assistant unavailable',
+    badge: 'service error',
+    blurb: 'The natural-language service could not process this request.',
+  },
+  NLP_UNAVAILABLE: {
+    title: 'Assistant unavailable',
+    badge: 'service error',
+    blurb: 'The natural-language assistant is currently unavailable.',
+  },
+}
+
 function ResultsPanel({
   resolveResult,
   simResult,
   error,
+  errorDetail,
+  onPrefill,
 }: {
   resolveResult: ResolveMetricsResponse | null
   simResult: SimulationResult | null
   error: string | null
+  errorDetail: ApiErrorDetailItem[] | null
+  onPrefill: (text: string) => void
 }) {
   const [applyDialog, setApplyDialog]       = useState(false)
   const [applyState, setApplyState]         = useState<'idle' | 'loading' | 'done' | 'reverting' | 'reverted' | 'error'>('idle')
   const [applyMessage, setApplyMessage]     = useState<string | null>(null)
   const [appliedResource, setAppliedResource] = useState<ApplyResult | null>(null)
   const [showRawJson, setShowRawJson]       = useState(false)
+  const [showErrorJson, setShowErrorJson]   = useState(false)
 
   const openApplyDialog = () => {
     setApplyState('idle')
@@ -668,17 +708,94 @@ function ResultsPanel({
   const meta    = resolveResult?.parser_metadata
 
   if (error) {
+    const primary = errorDetail?.[0]
+    const code    = primary?.code
+    const copy    = (code && ERROR_COPY[code]) || null
+    const title   = copy?.title ?? 'Failed'
+    const badge   = copy?.badge ?? 'error'
+    const blurb   = copy?.blurb ?? error
+    // Sub-details: either nested in the primary item, or one entry per error item
+    const subDetails = primary?.details?.length
+      ? primary.details
+      : (errorDetail && errorDetail.length > 1 ? errorDetail : [])
+
     return (
-      <div className="h-full p-8">
-        <div className="border-l-2 border-red-500 pl-5">
-          <p className="text-xs font-semibold text-muted uppercase tracking-widest mb-2">Simulation failed</p>
-          <p className="text-sm text-red-300 leading-relaxed">{error}</p>
-          {(error.includes('action name') || error.includes('Could not parse')) && (
-            <p className="text-xs text-muted mt-3">
-              Try rephrasing, e.g. <span className="text-accent font-mono">move server-1 to router-2</span>
-            </p>
+      <div className="h-full overflow-y-auto px-8 py-7 space-y-8">
+        {/* Verdict */}
+        <div>
+          <div className="flex items-baseline gap-4 mb-3">
+            <span className="text-2xl font-bold tracking-tight text-red-400">
+              {title}
+            </span>
+            <span className="badge text-[10px] font-semibold uppercase tracking-wider bg-red-500/15 text-red-400">
+              {badge}
+            </span>
+          </div>
+          <p className="text-sm text-gray-300 leading-relaxed max-w-xl">{blurb}</p>
+          <div className="mt-4 h-px bg-red-500/20" />
+        </div>
+
+        {/* Reason */}
+        <div>
+          <SectionLabel>What went wrong</SectionLabel>
+          <div className="px-4 py-3 rounded-lg bg-red-500/8 border border-red-500/20 text-sm text-red-300 leading-relaxed">
+            {primary?.message ?? error}
+          </div>
+          {subDetails.length > 0 && (
+            <ul className="mt-3 space-y-1.5">
+              {subDetails.map((d, i) => (
+                <li key={i} className="text-xs text-red-300/80 pl-3 border-l border-red-500/30 font-mono">
+                  {d.path && <span className="text-red-400/90">{d.path}: </span>}
+                  {d.message}
+                  {d.value ? <span className="text-muted"> (got: {d.value})</span> : null}
+                </li>
+              ))}
+            </ul>
           )}
         </div>
+
+        {/* Suggestions */}
+        <div>
+          <SectionLabel>Try instead</SectionLabel>
+          <div className="space-y-2">
+            {[
+              'add compute node to tor2',
+              'add a new server to rack 1',
+              'remove server-4',
+              'move server-1 to router-2',
+            ].map((s) => (
+              <button
+                key={s}
+                type="button"
+                onClick={() => onPrefill(s)}
+                className="block w-full text-left px-3 py-2 rounded-lg bg-surface3 border border-border text-xs text-gray-300 font-mono hover:border-accent/40 hover:text-accent transition"
+              >
+                {s}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Raw JSON toggle */}
+        {errorDetail && (
+          <div className="border-t border-border pt-5">
+            <button
+              type="button"
+              onClick={() => setShowErrorJson((v) => !v)}
+              className="flex items-center gap-2 text-xs text-muted hover:text-gray-300 transition"
+            >
+              <span className={`inline-block w-3.5 h-3.5 border border-current rounded-sm transition-transform ${showErrorJson ? 'rotate-90' : ''}`}>
+                <svg viewBox="0 0 14 14" fill="currentColor"><path d="M5 3l4 4-4 4" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round"/></svg>
+              </span>
+              {showErrorJson ? 'Hide raw JSON' : 'View raw JSON'}
+            </button>
+            {showErrorJson && (
+              <pre className="mt-3 p-4 rounded-lg bg-surface3 border border-border text-[11px] font-mono text-gray-400 overflow-x-auto max-h-96 leading-relaxed">
+                {JSON.stringify(errorDetail, null, 2)}
+              </pre>
+            )}
+          </div>
+        )}
       </div>
     )
   }
@@ -1126,6 +1243,7 @@ export default function PromptAssistantPage() {
   const [prompt, setPrompt]               = useState('')
   const [loading, setLoading]             = useState(false)
   const [error, setError]                 = useState<string | null>(null)
+  const [errorDetail, setErrorDetail]     = useState<ApiErrorDetailItem[] | null>(null)
   const [resolveResult, setResolveResult] = useState<ResolveMetricsResponse | null>(null)
   const [simResult, setSimResult]         = useState<SimulationResult | null>(null)
   const [confirming, setConfirming]       = useState<{ action: string; params: Record<string, unknown>; projectionSteps: number } | null>(null)
@@ -1137,6 +1255,7 @@ export default function PromptAssistantPage() {
   const handleClear = () => {
     setPrompt('')
     setError(null)
+    setErrorDetail(null)
     setResolveResult(null)
     setSimResult(null)
     setConfirming(null)
@@ -1162,6 +1281,7 @@ export default function PromptAssistantPage() {
     const text = prompt.trim()
     if (!text) return
     setError(null)
+    setErrorDetail(null)
     setResolveResult(null)
     setSimResult(null)
 
@@ -1189,25 +1309,27 @@ export default function PromptAssistantPage() {
   ) => {
     setLoading(true)
     setError(null)
+    setErrorDetail(null)
     setResolveResult(null)
     setSimResult(null)
     try {
-      // Always run Gemini NLP first — no deterministic shortcuts
-      const resolved = await resolveMetrics(text)
-      const action = override?.action ?? resolved.parser_metadata.action
-      const params = override
-        ? { ...(resolved.simulation_report?.params ?? {}), ...override.params }
-        : (resolved.simulation_report?.params ?? {})
-      const patchedResolved = override
-        ? {
-            ...resolved,
-            parser_metadata: { ...resolved.parser_metadata, action },
-            simulation_report: { ...resolved.simulation_report, params },
-          }
-        : resolved
-      setResolveResult(patchedResolved)
+      let resolved: ResolveMetricsResponse
+      if (override) {
+        // User confirmed explicit params in the form — re-simulate against
+        // those exact values directly (bypasses NLP re-parsing so the
+        // confirmed numbers, not the LLM's stale defaults, drive validation).
+        resolved = await resolveMetrics(text, {
+          action: override.action,
+          params: override.params,
+        })
+      } else {
+        // Always run Gemini NLP first — no deterministic shortcuts
+        resolved = await resolveMetrics(text)
+      }
+      setResolveResult(resolved)
     } catch (e) {
       setError(formatApiError(e))
+      setErrorDetail(extractApiErrorDetail(e))
     } finally {
       setLoading(false)
     }
@@ -1303,7 +1425,7 @@ export default function PromptAssistantPage() {
               onCancel={handleClear}
             />
           ) : hasResult ? (
-            <ResultsPanel resolveResult={resolveResult} simResult={simResult} error={error} />
+            <ResultsPanel resolveResult={resolveResult} simResult={simResult} error={error} errorDetail={errorDetail} onPrefill={(text) => { handleClear(); setPrompt(text) }} />
           ) : (
             <RightPanelIdle />
           )}
