@@ -1,5 +1,25 @@
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? ''
 
+/** Turn a FastAPI `detail` payload (string, list of error items, or plain object) into readable text. */
+function stringifyDetail(detail: unknown): string | undefined {
+  if (detail === undefined || detail === null) return undefined
+  if (typeof detail === 'string') return detail
+  if (Array.isArray(detail)) {
+    return detail
+      .map((item) => (typeof item === 'object' && item !== null && 'message' in item)
+        ? String((item as { message: unknown }).message)
+        : String(item))
+      .join(' ')
+  }
+  if (typeof detail === 'object') {
+    const obj = detail as Record<string, unknown>
+    if (typeof obj.message === 'string') return obj.message
+    if (typeof obj.error === 'string') return obj.error
+    return JSON.stringify(detail)
+  }
+  return String(detail)
+}
+
 export class ApiError extends Error {
   constructor(
     message: string,
@@ -32,10 +52,11 @@ export async function api<T>(
   }
 
   if (!res.ok) {
-    const detail =
+    const detail = stringifyDetail(
       typeof data === 'object' && data !== null && 'detail' in data
-        ? String((data as { detail: unknown }).detail)
-        : res.statusText
+        ? (data as { detail: unknown }).detail
+        : undefined,
+    ) ?? res.statusText
     throw new ApiError(detail, res.status, data)
   }
 

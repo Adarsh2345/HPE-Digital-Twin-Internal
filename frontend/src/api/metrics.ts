@@ -5,6 +5,7 @@ export interface ParserMetadata {
   request_text: string
   parser_used: string
   action: string
+  parsed_params?: Record<string, unknown>
 }
 
 export interface SimulationReport {
@@ -44,19 +45,8 @@ export function resolveMetrics(
 
 export function formatApiError(error: unknown): string {
   if (error instanceof ApiError) {
-    const body = error.body as { detail?: unknown } | undefined
-    const detail = body?.detail
-    if (Array.isArray(detail)) {
-      return detail
-        .map((item) => {
-          if (typeof item === 'object' && item !== null && 'message' in item) {
-            return String((item as { message: unknown }).message)
-          }
-          return String(item)
-        })
-        .join(' ')
-    }
-    if (typeof detail === 'string') return detail
+    // error.message is already normalized from `detail` by the client (string,
+    // array-of-items, or plain object all collapse to readable text there).
     return error.message
   }
   return error instanceof Error ? error.message : 'Request failed'

@@ -112,6 +112,9 @@ def resolve_metrics(payload: dict = Body(...)):
                 "request_text": request.request_text,
                 "parser_used": request.parser_used,
                 "action": action,
+                # Raw parsed fields (pre-remap) for pre-filling confirm forms —
+                # field names here match the frontend's form keys (cpu_pct, etc.)
+                "parsed_params": request_dict,
             },
             "simulation_report": report,
             "clone_id": sim_result["clone_id"],
@@ -167,7 +170,38 @@ def _simulation_params(request_dict: dict, base_graph=None) -> dict:
     if params.get("node_id") is None and base_graph is not None:
         params["node_id"] = _next_server_id(base_graph)
 
+    # Resolve user-typed node references case-insensitively against real
+    # inventory IDs (the confirm form accepts free text, e.g. "Server-1").
+    # If a token doesn't match anything in inventory, leave it as-is —
+    # add_compute's node_id is often a *new* node name that won't exist yet.
+    if base_graph is not None:
+        for key in ("node_id", "server_id", "target_router_id", "source_node_id", "target_node_id"):
+            if params.get(key):
+                params[key] = _resolve_existing_id(params[key], base_graph) or params[key]
+
     return params
+
+
+def _fold_id(s: str) -> str:
+    """Normalize a node token for loose matching: lowercase, spaces/underscores -> hyphens."""
+    return s.strip().lower().replace("_", "-").replace(" ", "-")
+
+
+def _resolve_existing_id(token: str, base_graph) -> str | None:
+    """
+    Match a short or composite token to a canonical graph node id, tolerating
+    case and separator differences (e.g. "Server 1", "server_1" -> "server-1").
+    """
+    val = str(token).strip()
+    if not val:
+        return None
+    short = val.split("/", 1)[1] if "/" in val else val
+    folded_short = _fold_id(short)
+    for nid in base_graph.nodes:
+        nid_short = nid.split("/", 1)[1] if "/" in nid else nid
+        if nid == val or _fold_id(nid_short) == folded_short:
+            return nid
+    return None
 
 
 def _next_server_id(G) -> str:

@@ -1242,6 +1242,7 @@ const CONFIRM_ACTIONS = new Set([
 export default function PromptAssistantPage() {
   const [prompt, setPrompt]               = useState('')
   const [loading, setLoading]             = useState(false)
+  const [preResolving, setPreResolving]   = useState(false)
   const [error, setError]                 = useState<string | null>(null)
   const [errorDetail, setErrorDetail]     = useState<ApiErrorDetailItem[] | null>(null)
   const [resolveResult, setResolveResult] = useState<ResolveMetricsResponse | null>(null)
@@ -1250,7 +1251,7 @@ export default function PromptAssistantPage() {
   const textareaRef                       = useRef<HTMLTextAreaElement>(null)
 
   const hasResult = !!resolveResult || !!error
-  const showConfirm = !!confirming && !loading && !hasResult
+  const showConfirm = !!confirming && !loading && !preResolving && !hasResult
 
   const handleClear = () => {
     setPrompt('')
@@ -1277,7 +1278,7 @@ export default function PromptAssistantPage() {
   }
 
   // Called when user clicks Run Simulation
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     const text = prompt.trim()
     if (!text) return
     setError(null)
@@ -1287,8 +1288,26 @@ export default function PromptAssistantPage() {
 
     const action = detectAction(text)
     if (action && CONFIRM_ACTIONS.has(action)) {
-      // Show config form immediately — no backend call yet
-      setConfirming({ action, params: {}, projectionSteps: 3 })
+      // Pre-resolve via NLP so the form opens pre-filled with whatever the
+      // user already typed (node id, percentages, etc.) instead of blank —
+      // the user still confirms/edits before the real simulation runs.
+      // Uses a lightweight spinner, not the full simulation stepper — this
+      // is just a quick parse, not a mutation/validation run.
+      setPreResolving(true)
+      try {
+        const resolved = await resolveMetrics(text)
+        const resolvedAction = resolved.parser_metadata.action || action
+        setConfirming({
+          action: resolvedAction,
+          params: resolved.parser_metadata.parsed_params ?? {},
+          projectionSteps: 3,
+        })
+      } catch {
+        // Fall back to a blank form if pre-resolution fails — user can fill manually
+        setConfirming({ action, params: {}, projectionSteps: 3 })
+      } finally {
+        setPreResolving(false)
+      }
       return
     }
 
@@ -1312,6 +1331,13 @@ export default function PromptAssistantPage() {
     setErrorDetail(null)
     setResolveResult(null)
     setSimResult(null)
+    const startedAt = Date.now()
+    // The step-by-step visual is a fixed choreography (STEP_DELAYS), not driven
+    // by real backend progress — the actual pipeline (mutate, impact, projection,
+    // scenario loop, validation) runs synchronously and often finishes in ~1-3s.
+    // Hold the result until the animation has fully played out so steps never
+    // appear to be skipped.
+    const MIN_DISPLAY_MS = STEP_DELAYS[STEP_DELAYS.length - 1] + 1200
     try {
       let resolved: ResolveMetricsResponse
       if (override) {
@@ -1326,8 +1352,12 @@ export default function PromptAssistantPage() {
         // Always run Gemini NLP first — no deterministic shortcuts
         resolved = await resolveMetrics(text)
       }
+      const remaining = MIN_DISPLAY_MS - (Date.now() - startedAt)
+      if (remaining > 0) await new Promise((r) => setTimeout(r, remaining))
       setResolveResult(resolved)
     } catch (e) {
+      const remaining = MIN_DISPLAY_MS - (Date.now() - startedAt)
+      if (remaining > 0) await new Promise((r) => setTimeout(r, remaining))
       setError(formatApiError(e))
       setErrorDetail(extractApiErrorDetail(e))
     } finally {
@@ -1344,7 +1374,7 @@ export default function PromptAssistantPage() {
           <h1 className="text-sm font-semibold text-white tracking-tight">Prompt Assistant</h1>
           <p className="text-xs text-muted mt-0.5">Natural language infrastructure simulation</p>
         </div>
-        {(hasResult || showConfirm) && !loading && (
+        {(hasResult || showConfirm) && !loading && !preResolving && (
           <button
             type="button"
             onClick={handleClear}
@@ -1372,7 +1402,7 @@ export default function PromptAssistantPage() {
               onChange={(e) => setPrompt(e.target.value)}
               placeholder="Describe an infrastructure change in plain English…"
               rows={5}
-              disabled={loading}
+              disabled={loading || preResolving}
               className="w-full bg-surface3 border border-border rounded px-3 py-2.5 text-sm text-gray-200 placeholder:text-faint focus:outline-none focus:border-accent/40 resize-none transition-colors font-sans"
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) handleSubmit()
@@ -1384,10 +1414,10 @@ export default function PromptAssistantPage() {
             <button
               type="button"
               onClick={handleSubmit}
-              disabled={loading || !prompt.trim()}
+              disabled={loading || preResolving || !prompt.trim()}
               className="w-full py-2 rounded bg-accent text-bg text-sm font-semibold hover:brightness-110 transition disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
-              {loading
+              {loading || preResolving
                 ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Processing</>
                 : 'Run Simulation'
               }
@@ -1417,6 +1447,11 @@ export default function PromptAssistantPage() {
         <div className="flex-1 min-w-0 bg-bg">
           {loading ? (
             <SimulationStepper active={loading} />
+          ) : preResolving ? (
+            <div className="flex flex-col items-center justify-center h-full gap-3">
+              <Loader2 className="w-5 h-5 animate-spin text-accent" />
+              <p className="text-xs text-muted">Reading your command…</p>
+            </div>
           ) : showConfirm ? (
             <ConfirmationPanel
               action={confirming.action}
