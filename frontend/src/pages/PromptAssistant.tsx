@@ -11,10 +11,146 @@ import {
 import { type SimulationResult } from '../api/simulation'
 import {
   formatActionLabel,
+  formatNumber,
   riskFromSimulation,
   severityBadgeClass,
   shortNodeId,
 } from '../utils/format'
+
+// ── Scenario-analysis helpers (mirrors Simulation.tsx) ──────────────────────
+interface ScenarioNodeMetrics {
+  cpu_percent?: number
+  memory_percent?: number
+  power_watts?: number
+  disk_iops?: number
+  latency_ms?: number
+  packet_loss_percent?: number
+}
+
+interface ScenarioModifiers {
+  cpu: number; memory: number; power: number
+  diskIops: number; latency: number; packetLoss: number
+}
+
+interface ScenarioAggregate {
+  id: string; label: string
+  avgCpu: number; avgMemory: number; totalPower: number
+  avgLatency: number; avgPacketLoss: number; totalDiskIops: number
+  riskLevel: 'Low' | 'Medium' | 'High'; riskScore: number
+}
+
+const WORKLOAD_SCENARIOS: { id: string; label: string; description: string; modifiers: ScenarioModifiers }[] = [
+  { id: 'normal', label: 'Normal Operations', description: 'Projected post-change baseline', modifiers: { cpu: 1, memory: 1, power: 1, diskIops: 1, latency: 1, packetLoss: 1 } },
+  { id: 'peak', label: 'Business Peak Hours', description: 'Heavier utilization during peak demand', modifiers: { cpu: 1.25, memory: 1.2, power: 1.15, diskIops: 1.1, latency: 1.5, packetLoss: 1.3 } },
+  { id: 'batch', label: 'Night Batch Processing', description: 'Elevated storage throughput workloads', modifiers: { cpu: 1.1, memory: 1.05, power: 1.1, diskIops: 1.4, latency: 1.1, packetLoss: 1 } },
+  { id: 'dr', label: 'Disaster Recovery Mode', description: 'Maximum stress failover conditions', modifiers: { cpu: 1.45, memory: 1.35, power: 1.25, diskIops: 1.2, latency: 1.8, packetLoss: 2.5 } },
+]
+
+function getAffectedServices(result: SimulationResult | null): string[] {
+  if (!result) return []
+  const services = new Set<string>()
+  for (const sr of result.scenario_results) {
+    if (sr.passed === false) {
+      const id = sr.scenario ?? sr.node_id
+      if (typeof id === 'string') services.add(id)
+    }
+  }
+  const impact = result.impact_predictions
+  if (impact.nodes_affected && Array.isArray(impact.nodes_affected)) {
+    for (const n of impact.nodes_affected) if (typeof n === 'string') services.add(n)
+  }
+  for (const key of Object.keys(impact)) {
+    if (key.includes('/') || key.includes('server') || key.includes('prometheus') || key.includes('grafana')) {
+      services.add(key)
+    }
+  }
+  return [...services]
+}
+
+function getBlastRadiusCount(result: SimulationResult | null): number {
+  if (!result) return 0
+  const impact = result.impact_predictions
+  if (typeof impact.nodes_affected === 'number') return impact.nodes_affected
+  if (Array.isArray(impact.nodes_affected)) return impact.nodes_affected.length
+  return result.scenario_results.filter((s) => s.passed === false).length
+}
+
+function extractBaselineNodeMetrics(result: SimulationResult): ScenarioNodeMetrics[] {
+  if (result.projections.length > 0) {
+    const lastStep = result.projections[result.projections.length - 1]
+    const nodes = lastStep.nodes as Record<string, ScenarioNodeMetrics> | undefined
+    if (nodes && Object.keys(nodes).length > 0) return Object.values(nodes)
+  }
+  const graph = result.projected_graph as { nodes?: { metrics?: ScenarioNodeMetrics }[] } | undefined
+  if (graph?.nodes?.length) {
+    return graph.nodes.map((n) => n.metrics ?? {}).filter((m) => typeof m.cpu_percent === 'number' || typeof m.power_watts === 'number')
+  }
+  return []
+}
+
+function aggregateScenarioMetrics(baseline: ScenarioNodeMetrics[], modifiers: ScenarioModifiers): Omit<ScenarioAggregate, 'id' | 'label' | 'riskLevel' | 'riskScore'> {
+  if (baseline.length === 0) return { avgCpu: 0, avgMemory: 0, totalPower: 0, avgLatency: 0, avgPacketLoss: 0, totalDiskIops: 0 }
+  let cpuSum = 0, memSum = 0, powerSum = 0, latencySum = 0, packetSum = 0, iopsSum = 0, latencyCount = 0, packetCount = 0
+  for (const node of baseline) {
+    cpuSum += Math.min(100, (node.cpu_percent ?? 0) * modifiers.cpu)
+    memSum += Math.min(100, (node.memory_percent ?? 0) * modifiers.memory)
+    powerSum += (node.power_watts ?? 0) * modifiers.power
+    iopsSum += (node.disk_iops ?? 0) * modifiers.diskIops
+    if (node.latency_ms != null) { latencySum += node.latency_ms * modifiers.latency; latencyCount++ }
+    if (node.packet_loss_percent != null) { packetSum += Math.min(100, node.packet_loss_percent * modifiers.packetLoss); packetCount++ }
+  }
+  const count = baseline.length
+  return { avgCpu: cpuSum / count, avgMemory: memSum / count, totalPower: powerSum, avgLatency: latencyCount > 0 ? latencySum / latencyCount : 0, avgPacketLoss: packetCount > 0 ? packetSum / packetCount : 0, totalDiskIops: iopsSum }
+}
+
+function scoreScenarioRisk(metrics: Omit<ScenarioAggregate, 'id' | 'label' | 'riskLevel' | 'riskScore'>, simulationAllowed: boolean): { riskLevel: 'Low' | 'Medium' | 'High'; riskScore: number } {
+  let score = 0
+  if (metrics.avgCpu >= 85) score += 3; else if (metrics.avgCpu >= 70) score += 2; else if (metrics.avgCpu >= 55) score += 1
+  if (metrics.avgMemory >= 90) score += 3; else if (metrics.avgMemory >= 75) score += 2; else if (metrics.avgMemory >= 60) score += 1
+  if (metrics.avgLatency >= 100) score += 3; else if (metrics.avgLatency >= 50) score += 2; else if (metrics.avgLatency >= 25) score += 1
+  if (metrics.avgPacketLoss >= 2) score += 2; else if (metrics.avgPacketLoss >= 0.5) score += 1
+  if (!simulationAllowed) score += 2
+  return { riskLevel: score >= 6 ? 'High' : score >= 3 ? 'Medium' : 'Low', riskScore: score }
+}
+
+function buildScenarioRecommendations(scenarios: ScenarioAggregate[], simulationAllowed: boolean): string[] {
+  const byId = Object.fromEntries(scenarios.map((s) => [s.id, s]))
+  const recs: string[] = []
+  const { peak, batch, dr, normal } = byId
+  if (normal?.riskLevel === 'Low' && simulationAllowed) recs.push('Change is stable under normal operating conditions.')
+  if (peak?.riskLevel === 'Low') recs.push('Safe for Business Peak — projected headroom remains within acceptable limits.')
+  else if (peak?.riskLevel === 'Medium') recs.push('Caution during Business Peak — monitor CPU and latency during high-traffic windows.')
+  else if (peak) recs.push('Not recommended for Business Peak without capacity expansion or load balancing.')
+  if (batch && batch.riskLevel !== 'High') recs.push('Suitable for Night Batch — disk throughput increase is within manageable bounds.')
+  else if (batch) recs.push('Night Batch workloads may saturate storage IOPS — schedule during off-peak or add capacity.')
+  if (dr?.riskLevel === 'High') recs.push('Requires capacity expansion before DR workloads — failover stress exceeds safe thresholds.')
+  else if (dr?.riskLevel === 'Medium') recs.push('DR failover is feasible with active monitoring and a staged recovery plan.')
+  else if (dr) recs.push('Disaster Recovery mode projected within safe operating envelope.')
+  if (!simulationAllowed) recs.push('Address simulation constraint violations before applying this change to production.')
+  return recs.length > 0 ? recs : ['Review projected metrics across all workload scenarios before deployment.']
+}
+
+function buildScenarioAnalysis(result: SimulationResult) {
+  const baseline = extractBaselineNodeMetrics(result)
+  if (baseline.length === 0) return null
+  const scenarios: ScenarioAggregate[] = WORKLOAD_SCENARIOS.map((scenario) => {
+    const metrics = aggregateScenarioMetrics(baseline, scenario.modifiers)
+    const { riskLevel, riskScore } = scoreScenarioRisk(metrics, result.allowed)
+    return { id: scenario.id, label: scenario.label, ...metrics, riskLevel, riskScore }
+  })
+  const sorted = [...scenarios].sort((a, b) => a.riskScore - b.riskScore)
+  return { scenarios, bestCase: sorted[0], worstCase: sorted[sorted.length - 1], recommendations: buildScenarioRecommendations(scenarios, result.allowed) }
+}
+
+function MetricPill({ label, value, sub }: { label: string; value: ReactNode; sub?: string }) {
+  return (
+    <div className="px-4 py-3 rounded-lg bg-surface3 border border-border">
+      <p className="text-[10px] text-muted uppercase tracking-wider mb-1">{label}</p>
+      <div className="text-sm font-semibold text-white">{value}</div>
+      {sub && <p className="text-[11px] text-muted mt-0.5">{sub}</p>}
+    </div>
+  )
+}
 
 // ── Pipeline steps ──────────────────────────────────────────────────────────
 const PIPELINE_STEPS = [
@@ -806,6 +942,9 @@ function ResultsPanel({
   const summaryText  = buildSummaryText(display.action, display.params, display.allowed, display.tier_results, display.scenario_results)
   const impactEntries = buildImpactEntries(display.impact_predictions as Record<string, unknown>)
   const tierEntries  = Object.entries(display.tier_results)
+  const affectedServices = getAffectedServices(display)
+  const blastRadius      = affectedServices.length || getBlastRadiusCount(display)
+  const scenarioAnalysis = buildScenarioAnalysis(display)
 
   return (
     <div className="h-full overflow-y-auto px-8 py-7 space-y-8">
@@ -823,6 +962,35 @@ function ResultsPanel({
         <p className="text-sm text-gray-300 leading-relaxed max-w-xl">{summaryText}</p>
         <div className={`mt-4 h-px ${display.allowed ? 'bg-accent/20' : 'bg-red-500/20'}`} />
       </div>
+
+      {/* ── Key metrics row ── */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <MetricPill label="Blast radius" value={`${blastRadius} nodes`} />
+        <MetricPill label="Projection steps" value={display.projection_steps} />
+        <MetricPill label="Constraint tiers" value={tierEntries.length} />
+        <MetricPill
+          label="Recommendation"
+          value={
+            <span className="text-xs font-normal text-gray-300 leading-snug line-clamp-2">
+              {display.recommendations[0] ?? display.warnings[0] ?? (display.allowed ? 'No action required' : 'Review violations')}
+            </span>
+          }
+        />
+      </div>
+
+      {/* ── Affected nodes ── */}
+      {affectedServices.length > 0 && (
+        <div>
+          <SectionLabel>Affected nodes</SectionLabel>
+          <div className="flex flex-wrap gap-1.5">
+            {affectedServices.map((s) => (
+              <span key={s} className="text-xs px-2 py-0.5 rounded-full bg-red-500/12 text-red-300 border border-red-500/20 font-mono">
+                {shortNodeId(s)}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* ── What was understood ── */}
       <div>
@@ -881,6 +1049,70 @@ function ResultsPanel({
             })}
           </div>
           <p className="text-[11px] text-muted mt-2">Normal load, business peak, and batch job patterns tested against the mutated topology.</p>
+        </div>
+      )}
+
+      {/* ── Workload scenario analysis ── */}
+      {scenarioAnalysis && (
+        <div>
+          <SectionLabel>Workload scenario analysis</SectionLabel>
+          <p className="text-xs text-muted mb-3">Projected impact across operating conditions</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
+            {scenarioAnalysis.scenarios.map((scenario) => (
+              <div key={scenario.id} className="px-4 py-4 rounded-lg bg-surface3 border border-border">
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-xs font-semibold text-white">{scenario.label}</p>
+                  <span className={`badge text-[10px] ${severityBadgeClass(scenario.riskLevel)}`}>{scenario.riskLevel}</span>
+                </div>
+                <p className="text-[11px] text-muted mb-3">
+                  {WORKLOAD_SCENARIOS.find((s) => s.id === scenario.id)?.description}
+                </p>
+                <div className="space-y-1 text-[11px]">
+                  <div className="flex justify-between">
+                    <span className="text-muted">CPU</span>
+                    <span className={scenario.avgCpu >= 80 ? 'text-red-400 font-semibold' : 'text-gray-300'}>{formatNumber(scenario.avgCpu, 1)}%</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted">Power</span>
+                    <span className="text-gray-300">{formatNumber(scenario.totalPower, 0)} W</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted">Latency</span>
+                    <span className="text-gray-300">{formatNumber(scenario.avgLatency, 1)} ms</span>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-5">
+            <div className="px-4 py-3 rounded-lg bg-accent/8 border border-accent/20">
+              <p className="text-xs text-muted mb-1">Best case</p>
+              <p className="text-sm font-semibold text-accent">{scenarioAnalysis.bestCase.label}</p>
+              <p className="text-xs text-gray-400 mt-1">
+                {formatNumber(scenarioAnalysis.bestCase.avgCpu, 1)}% CPU · {formatNumber(scenarioAnalysis.bestCase.avgLatency, 1)} ms · {scenarioAnalysis.bestCase.riskLevel} risk
+              </p>
+            </div>
+            <div className="px-4 py-3 rounded-lg bg-red-500/8 border border-red-500/20">
+              <p className="text-xs text-muted mb-1">Worst case</p>
+              <p className="text-sm font-semibold text-red-400">{scenarioAnalysis.worstCase.label}</p>
+              <p className="text-xs text-gray-400 mt-1">
+                {formatNumber(scenarioAnalysis.worstCase.avgCpu, 1)}% CPU · {formatNumber(scenarioAnalysis.worstCase.avgLatency, 1)} ms · {scenarioAnalysis.worstCase.riskLevel} risk
+              </p>
+            </div>
+          </div>
+
+          <div>
+            <p className="text-[11px] font-semibold text-muted uppercase tracking-wider mb-2">Recommendations</p>
+            <ul className="space-y-2">
+              {scenarioAnalysis.recommendations.map((rec, i) => (
+                <li key={i} className="flex gap-2 text-sm text-gray-300">
+                  <span className="text-accent shrink-0">→</span>
+                  {rec}
+                </li>
+              ))}
+            </ul>
+          </div>
         </div>
       )}
 
